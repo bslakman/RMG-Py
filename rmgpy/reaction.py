@@ -990,16 +990,111 @@ class Reaction:
         format = os.path.splitext(path)[1].lower()[1:]
         ReactionDrawer().draw(self, format, path)
         
-    def _repr_png_(self):
-        """
-        Return a png picture of the reaction, useful for ipython-qtconsole.
-        """
-        from rmgpy.molecule.draw import ReactionDrawer
-        tempFileName = 'temp_reaction.png'
-        ReactionDrawer().draw(self, 'png', tempFileName)
-        png = open(tempFileName,'rb').read()
-        os.unlink(tempFileName)
-        return png
+        # First draw each of the reactants and products
+        reactants = []; products = []
+        for reactant in self.reactants:
+            if isinstance(reactant, Species):
+                molecule = reactant.molecule[0]
+            elif isinstance(reactant, Molecule):
+                molecule = reactant
+            reactants.append(drawMolecule(molecule, surface=format))
+        for product in self.products:
+            if isinstance(product, Species):
+                molecule = product.molecule[0]
+            elif isinstance(product, Molecule):
+                molecule = product
+            products.append(drawMolecule(molecule, surface=format))
+            
+        # Next determine size required for surface
+        rxn_width = 0; rxn_height = 0
+        for surface, cr, rect in reactants:
+            left, top, width, height = rect
+            rxn_width += width
+            if height > rxn_height: rxn_height = height
+        for surface, cr, rect in products:
+            left, top, width, height = rect
+            rxn_width += width
+            if height > rxn_height: rxn_height = height
+        
+        # Also include '+' and reaction arrow in width
+        cr.set_font_size(fontSizeNormal)
+        plus_extents = cr.text_extents(' + ')
+        arrow_width = 36
+        rxn_width += (len(reactants)-1) * plus_extents[4] + arrow_width + (len(products)-1) * plus_extents[4]
+        
+        # Now make the surface for the reaction and render each molecule on it
+        rxn_surface = createNewSurface(type=format, path=path, width=rxn_width, height=rxn_height)
+        rxn_cr = cairo.Context(rxn_surface)
+        
+        # Draw white background
+        rxn_cr.set_source_rgba(1.0, 1.0, 1.0, 1.0)
+        rxn_cr.paint()
+    
+        # Draw reactants
+        rxn_x = 0.0; rxn_y = 0.0
+        for index, reactant in enumerate(reactants):
+            surface, cr, rect = reactant
+            left, top, width, height = rect
+            if index > 0:
+                # Draw the "+" between the reactants
+                rxn_cr.save()
+                rxn_cr.set_font_size(fontSizeNormal)
+                rxn_y = (rxn_height - plus_extents[3]) / 2.0
+                rxn_cr.set_source_rgba(0.0, 0.0, 0.0, 1.0)
+                rxn_cr.move_to(rxn_x, rxn_y - plus_extents[1])
+                rxn_cr.show_text(' + ')
+                rxn_cr.restore()
+                rxn_x += plus_extents[4]
+            # Draw the reactant
+            rxn_y = (rxn_height - height) / 2.0
+            rxn_cr.save()
+            rxn_cr.set_source_surface(surface, rxn_x, rxn_y)
+            rxn_cr.paint()
+            rxn_cr.restore()
+            rxn_x += width            
+        
+        # Draw reaction arrow
+        # Unfortunately Cairo does not have arrow drawing built-in, so we must
+        # draw the arrow head ourselves
+        rxn_cr.save()
+        rxn_cr.set_source_rgba(0.0, 0.0, 0.0, 1.0)
+        rxn_cr.set_line_width(1.0)
+        rxn_cr.move_to(rxn_x + 8, rxn_height / 2.0)
+        rxn_cr.line_to(rxn_x + arrow_width - 8, rxn_height / 2.0)
+        rxn_cr.move_to(rxn_x + arrow_width - 14, rxn_height / 2.0 - 3.0)
+        rxn_cr.line_to(rxn_x + arrow_width - 8, rxn_height / 2.0)
+        rxn_cr.line_to(rxn_x + arrow_width - 14, rxn_height / 2.0 + 3.0)
+        rxn_cr.stroke()
+        rxn_cr.restore()
+        rxn_x += arrow_width
+        
+        # Draw products
+        for index, product in enumerate(products):
+            surface, cr, rect = product
+            left, top, width, height = rect
+            if index > 0:
+                # Draw the "+" between the products
+                rxn_cr.save()
+                rxn_cr.set_font_size(fontSizeNormal)
+                rxn_y = (rxn_height - plus_extents[3]) / 2.0
+                rxn_cr.set_source_rgba(0.0, 0.0, 0.0, 1.0)
+                rxn_cr.move_to(rxn_x, rxn_y - plus_extents[1])
+                rxn_cr.show_text(' + ')
+                rxn_cr.restore()
+                rxn_x += plus_extents[4]
+            # Draw the product
+            rxn_y = (rxn_height - height) / 2.0
+            rxn_cr.save()
+            rxn_cr.set_source_surface(surface, rxn_x, rxn_y)
+            rxn_cr.paint()
+            rxn_cr.restore()
+            rxn_x += width            
+        
+        # Finish Cairo drawing
+        if format == 'png':
+            surface.write_to_png(path)
+        else:
+            surface.finish()
             
     # Build the transition state geometry
     def generate3dTS(self, reactants, products):
@@ -1068,29 +1163,40 @@ class Reaction:
                         zCoord[k] = dirVec[k].z*lenVec[k]
             reactionAxis = [sum(xCoord), sum(yCoord), sum(zCoord)]
             products[i].reactionAxis = reactionAxis
-            
-    def copy(self):
-        """
-        Create a deep copy of the current reaction.
-        """
-        
-        cython.declare(other=Reaction)
+                
+################################################################################
 
-        other = Reaction.__new__(Reaction)
-        other.index = self.index
-        other.label = self.label
-        other.reactants = []
-        for reactant in self.reactants:
-            other.reactants.append(reactant.copy(deep=True))
-        other.products = []
-        for product in self.products:
-            other.products.append(product.copy(deep=True))
-        other.kinetics = deepcopy(self.kinetics)
-        other.reversible = self.reversible
-        other.transitionState = deepcopy(self.transitionState)
-        other.duplicate = self.duplicate
-        other.degeneracy = self.degeneracy
-        other.pairs = deepcopy(self.pairs)
-        
-        return other
+class ReactionModel:
+    """
+    A chemical reaction model, composed of a list of species and a list of
+    reactions involving those species. The attributes are:
+
+    =============== =========== ================================================
+    Attribute       Type        Description
+    =============== =========== ================================================
+    `species`       ``list``    The species involved in the reaction model
+    `reactions`     ``list``    The reactions comprising the reaction model
+    =============== =========== ================================================
+
+    """
+
+    def __init__(self, species=None, reactions=None):
+        self.species = species or []
+        self.reactions = reactions or []
+    
+    def __reduce__(self):
+        """
+        A helper function used when pickling an object.
+        """
+        return (ReactionModel, (self.species, self.reactions))
+
+    def generateStoichiometryMatrix(self):
+        """
+        Generate the stoichiometry matrix corresponding to the current
+        reaction system. The stoichiometry matrix is defined such that the
+        rows correspond to the `index` attribute of each species object, while
+        the columns correspond to the `index` attribute of each reaction object.
+        """
+        cython.declare(rxn=Reaction, spec=Species, i=cython.int, j=cython.int, nu=cython.int)
+        from scipy import sparse
 
