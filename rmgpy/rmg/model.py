@@ -83,11 +83,17 @@ class Species(rmgpy.species.Species):
         """
         Generates thermo data, first checking Libraries, then using either QM or Database.
         
-        If quantumMechanics is not None, it is asked to calculate the thermo.
-        Failing that, the database is used.
-        
-        The database generates the thermo data for each structure (resonance isomer),
-        picks that with lowest H298 value.
+        Result stored in `self.thermo` and returned.
+        """
+        if self.molecule[0].isCyclic():
+            thermo0 = self.generateThermoDataFromQM()
+        else:
+            thermo0 = self.generateThermoDataFromDB(database)
+        return self.processThermoData(thermo0, thermoClass)
+
+    def generateThermoDataFromQM(self):
+        """
+        Generate thermo data from first principles.
         
         It then calls :meth:`processThermoData`, to convert (via Wilhoit) to NASA
         and set the E0.
