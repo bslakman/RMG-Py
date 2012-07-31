@@ -39,64 +39,54 @@ class Mopac:
     usePolar = False #use polar keyword in MOPAC
     
     "Keywords for the multiplicity"
-    multiplicityKeywords = {
-                            1: '',
-                            2: 'uhf doublet',
-                            3: 'uhf triplet',
-                            4: 'uhf quartet',
-                            5: 'uhf quintet',
-                            6: 'uhf sextet',
-                            7: 'uhf septet',
-                            8: 'uhf octet',
-                            9: 'uhf nonet',
-                           }
+    multiplicityKeywords = {}
+    multiplicityKeywords[1] = ''
+    multiplicityKeywords[2] = 'uhf doublet'
+    multiplicityKeywords[3] = 'uhf triplet'
+    multiplicityKeywords[4] = 'uhf quartet'
+    multiplicityKeywords[5] = 'uhf quintet'
+    multiplicityKeywords[6] = 'uhf sextet'
+    multiplicityKeywords[7] = 'uhf septet'
+    multiplicityKeywords[8] = 'uhf octet'
+    multiplicityKeywords[9] = 'uhf nonet'
     
-    #: List of phrases that indicate failure
-    #: NONE of these must be present in a succesful job.
-    failureKeys = [
-                   'IMAGINARY FREQUENCIES',
-                   'EXCESS NUMBER OF OPTIMIZATION CYCLES',
-                   'NOT ENOUGH TIME FOR ANOTHER CYCLE',
-                   ]
-    #: List of phrases to indicate success.
-    #: ALL of these must be present in a successful job.
-    successKeys = [
-                   'DESCRIPTION OF VIBRATIONS',
-                   'MOPAC DONE'
-                  ]
-
-    def testReady(self):
-        if not os.path.exists(self.executablePath):
-            raise Exception("Couldn't find MOPAC executable at {0}. Try setting your MOPAC_DIR environment variable.".format(self.executablePath))
-
-    def run(self):
-        self.testReady()
-        # submits the input file to mopac
-        process = Popen([self.executablePath, self.inputFilePath])
-        process.communicate()# necessary to wait for executable termination!
+    "Keywords that will be added at the top of the qm input file"
+    keywordsTop = {}
+    keywordsTop[1] = "precise nosym"
+    keywordsTop[2] = "precise nosym gnorm=0.0 nonr"
+    keywordsTop[3] = "precise nosym gnorm=0.0"
+    keywordsTop[4] = "precise nosym gnorm=0.0 bfgs"
+    keywordsTop[5] = "precise nosym recalc=10 dmax=0.10 nonr cycles=2000 t=2000"
     
-        return self.verifyOutputFile()
-        
-    def verifyOutputFile(self):
+    "Keywords that will be added at the bottom of the qm input file"
+    keywordsBottom = {}
+    keywordsBottom[1] = "oldgeo thermo nosym precise "
+    keywordsBottom[2] = "oldgeo thermo nosym precise "
+    keywordsBottom[3] = "oldgeo thermo nosym precise "
+    keywordsBottom[4] = "oldgeo thermo nosym precise "
+    keywordsBottom[5] = "oldgeo thermo nosym precise "
+    
+    scriptAttempts = len(keywordsTop)
+    maxAttempts = 2 * scriptAttempts
+    
+    failureKeys = ['IMAGINARY FREQUENCIES', 'EXCESS NUMBER OF OPTIMIZATION CYCLES', 'NOT ENOUGH TIME FOR ANOTHER CYCLE']
+    
+    def writeInputFile(self, attempt, top_keys, bottom_keys, polar_keys):
         """
-        Check's that an output file exists and was successful.
-        
-        Returns a boolean flag that states whether a successful MOPAC simulation already exists for the molecule with the 
-        given (augmented) InChI Key.
-        
-        The definition of finding a successful simulation is based on these criteria:
-        1) finding an output file with the file name equal to the InChI Key
-        2) NOT finding any of the keywords that are denote a calculation failure
-        3) finding all the keywords that denote a calculation success.
-        4) finding a match between the InChI of the given molecule and the InchI found in the calculation files
-        5) checking that the optimized geometry, when connected by single bonds, is isomorphic with self.molecule (converted to single bonds)
-        
-        If any of the above criteria is not matched, False will be returned.
-        If all succeed, then it will return True.
+        Using the :class:`Geometry` object, write the input file
+        for the `attmept`th attempt.
         """
-        if not os.path.exists(self.outputFilePath):
-            logging.debug("Output file {0} does not (yet) exist.".format(self.outputFilePath))
-            return False
+        
+        inputFilePath = os.path.join(self.directory , self.geometry.uniqueID + self.inputFileExtension)
+        
+        obConversion = openbabel.OBConversion()
+        obConversion.SetInAndOutFormats("mol", "mop")
+        mol = openbabel.OBMol()
+    
+        if attempt <= self.scriptAttempts: #use UFF-refined coordinates
+            obConversion.ReadFile(mol, self.geometry.getRefinedMolFilePath() )
+        else:
+            obConversion.ReadFile(mol, self.geometry.getCrudeMolFilePath() )
     
         InChIMatch=False #flag (1 or 0) indicating whether the InChI in the file matches InChIaug this can only be 1 if InChIFound is also 1
         InChIFound=False #flag (1 or 0) indicating whether an InChI was found in the log file
