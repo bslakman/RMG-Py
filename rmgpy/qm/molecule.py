@@ -110,6 +110,24 @@ class Geometry:
         """
         return self.molecule.toRDKitMol(removeHs=False, returnMapping=True)
 
+        # Add the bonds
+        for atom1 in self.molecule.vertices:
+            for atom2, bond in atom1.edges.items():
+                index1 = rdAtomIdx[atom1]
+                index2 = rdAtomIdx[atom2]
+                if index1 > index2:
+                    # Check the RMG bond order and add the appropriate rdkit bond.
+                    if bond.order == 'S':
+                        rdBond = AllChem.rdchem.BondType.SINGLE
+                    elif bond.order == 'D':
+                        rdBond = AllChem.rdchem.BondType.DOUBLE
+                    elif bond.order == 'T':
+                        rdBond = AllChem.rdchem.BondType.TRIPLE
+                    elif bond.order == 'B':
+                        rdBond = AllChem.rdchem.BondType.AROMATIC
+                    else:
+                        print "Unknown bond order"
+                    rdmol.AddBond(index1, index2, rdBond)
 
     def rd_embed(self, rdmol, numConfAttempts):
         """
