@@ -94,13 +94,37 @@ class Mopac:
         # Initialize dictionary with "False"s 
         successKeysFound = dict([(key, False) for key in self.successKeys])
         
-        with open(self.outputFilePath) as outputFile:
-            for line in outputFile:
-                line = line.strip()
-                
-                for element in self.failureKeys: #search for failure keywords
-                    if element in line:
-                        logging.error("MOPAC output file contains the following error: {0}".format(element) )
+        with open(inputFilePath, 'w') as mopacFile:
+            mopacFile.write(top_keys)
+            mopacFile.write(input_string)
+            mopacFile.write('\n')
+            mopacFile.write(bottom_keys)
+            if self.usePolar:
+                mopacFile.write('\n\n\n')
+                mopacFile.write(polar_keys)
+        
+        return self.geometry.uniqueID + self.inputFileExtension
+       
+    def run(self, inputFileName):
+        # submits the input file to mopac
+        command = os.path.join(self.directory, self.geometry.uniqueID + self.inputFileExtension)
+        process = Popen([self.executablePath, command])
+        process.communicate()# necessary to wait for executable termination!
+    
+        return self.checkNoFailure()
+        
+    def checkNoFailure(self):
+        """
+        checks whether the output file contains any of the 
+        failure keywords
+        """
+        file = os.path.join(self.directory,self.geometry.uniqueID+self.outputFileExtension)
+        with open(file) as qmfile:    
+            for each_line in qmfile:
+                each_line = each_line.rstrip().strip()
+                for element in self.failureKeys:#search for failure keywords
+                    if element in each_line:
+                        logging.error("MOPAC output file contains the following error %s")%element
                         return False
                 
                 for element in self.successKeys: #search for success keywords
