@@ -83,16 +83,15 @@ class Mopac:
         obConversion.SetInAndOutFormats("mol", "mop")
         mol = openbabel.OBMol()
     
-        if attempt <= self.scriptAttempts: #use UFF-refined coordinates
+        if attempt <= scriptAttempts: #use UFF-refined coordinates
             obConversion.ReadFile(mol, self.geometry.getRefinedMolFilePath() )
         else:
             obConversion.ReadFile(mol, self.geometry.getCrudeMolFilePath() )
     
-        InChIMatch=False #flag (1 or 0) indicating whether the InChI in the file matches InChIaug this can only be 1 if InChIFound is also 1
-        InChIFound=False #flag (1 or 0) indicating whether an InChI was found in the log file
-        
-        # Initialize dictionary with "False"s 
-        successKeysFound = dict([(key, False) for key in self.successKeys])
+        mol.SetTitle(self.geometry.uniqueID) 
+        obConversion.SetOptions('k', openbabel.OBConversion.OUTOPTIONS)
+    
+        input_string = obConversion.WriteString(mol)
         
         with open(inputFilePath, 'w') as mopacFile:
             mopacFile.write(top_keys)
@@ -104,6 +103,22 @@ class Mopac:
                 mopacFile.write(polar_keys)
         
         return self.geometry.uniqueID + self.inputFileExtension
+    
+    def convertMolFile(self, outputType, attempt, scriptAttempts):
+        if attempt <= scriptAttempts: #use UFF-refined coordinates
+            inputFilePath = self.geometry.getRefinedMolFilePath()
+        else:
+            inputFilePath = self.geometry.getCrudeMolFilePath()
+                    
+        obConversion = openbabel.OBConversion()
+        obConversion.SetInAndOutFormats("mol", outputType)
+        mol = openbabel.OBMol()
+        obConversion.ReadFile(mol, inputFilePath)
+        mol.SetTitle(self.geometry.uniqueID) 
+        obConversion.SetOptions('k', openbabel.OBConversion.OUTOPTIONS)
+        input_string = obConversion.WriteString(mol)
+        
+        return input_string
        
     def run(self, inputFileName):
         # submits the input file to mopac
