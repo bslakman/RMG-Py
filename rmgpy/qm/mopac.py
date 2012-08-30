@@ -73,11 +73,11 @@ class Mopac:
     
     def writeInputFile(self, attempt, top_keys, bottom_keys, polar_keys):
         """
-        Using the :class:`Geometry` object, write the input file
-        for the `attmept`th attempt.
-        """
+        Check's that an output file exists and was successful.
         
-        inputFilePath = os.path.join(self.directory , self.geometry.uniqueID + self.inputFileExtension)
+        Returns a boolean flag that states whether a successful MOPAC simulation already exists for the molecule with the 
+        given (augmented) InChI Key.
+        """
         
         obConversion = openbabel.OBConversion()
         obConversion.SetInAndOutFormats("mol", "mop")
