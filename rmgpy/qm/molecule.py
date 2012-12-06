@@ -150,6 +150,9 @@ class Geometry:
                     Pharm3D.EmbedLib.EmbedMol(rdmol, boundsMatrix)
                 except ValueError:
                     pass
+                except RuntimeError:
+                    import ipdb; ipdb.set_trace()
+                    pass
                 else:
                     break
             crude = Chem.Mol(rdmol.ToBinary())

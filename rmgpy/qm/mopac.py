@@ -8,6 +8,7 @@ import distutils.spawn
 from rmgpy.molecule import Molecule
 from qmdata import CCLibData
 from molecule import QMMolecule
+from reaction import QMReaction
 
 
 class Mopac:
