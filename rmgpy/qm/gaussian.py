@@ -267,32 +267,23 @@ class GaussianMolPM3(GaussianMol):
                "# pm3 opt=(calcall,small,maxcyc=100) IOP(2/16=3)", # used to address troublesome FILUFGAZMJGNEN-UHFFFAOYAImult3 case (InChI=1/C5H6/c1-3-5-4-2/h3H,1H2,2H3/mult3)
                ]
 
-class GaussianMolPM6(GaussianMol):
-    """
-    Gaussian PM6 calculations for molecules
-    
-    This is a class of its own in case you wish to do anything differently,
-    but for now it's only the 'pm6' in the keywords that differs.
-    """
-    #: Keywords that will be added at the top of the qm input file
-    keywords = [
-                # The combinations of keywords were derived by Greg Magoon for pm3. For now, we assume similar ones will work for pm6:
-               "# pm6 opt=(verytight,gdiis) freq IOP(2/16=3)",
-               "# pm6 opt=(verytight,gdiis) freq IOP(2/16=3) IOP(4/21=2)",
-               "# pm6 opt=(verytight,calcfc,maxcyc=200) freq IOP(2/16=3) nosymm" ,
-               "# pm6 opt=(verytight,calcfc,maxcyc=200) freq=numerical IOP(2/16=3) nosymm",
-               "# pm6 opt=(verytight,gdiis,small) freq IOP(2/16=3)",
-               "# pm6 opt=(verytight,nolinear,calcfc,small) freq IOP(2/16=3)",
-               "# pm6 opt=(verytight,gdiis,maxcyc=200) freq=numerical IOP(2/16=3)",
-               "# pm6 opt=tight freq IOP(2/16=3)",
-               "# pm6 opt=tight freq=numerical IOP(2/16=3)",
-               "# pm6 opt=(tight,nolinear,calcfc,small,maxcyc=200) freq IOP(2/16=3)",
-               "# pm6 opt freq IOP(2/16=3)",
-               "# pm6 opt=(verytight,gdiis) freq=numerical IOP(2/16=3) IOP(4/21=200)",
-               "# pm6 opt=(calcfc,verytight,newton,notrustupdate,small,maxcyc=100,maxstep=100) freq=(numerical,step=10) IOP(2/16=3) nosymm",
-               "# pm6 opt=(tight,gdiis,small,maxcyc=200,maxstep=100) freq=numerical IOP(2/16=3) nosymm",
-               "# pm6 opt=(verytight,gdiis,calcall) IOP(2/16=3)",
-               "# pm6 opt=(verytight,gdiis,calcall,small,maxcyc=200) IOP(2/16=3) IOP(4/21=2) nosymm",
-               "# pm6 opt=(verytight,gdiis,calcall,small) IOP(2/16=3) nosymm",
-               "# pm6 opt=(calcall,small,maxcyc=100) IOP(2/16=3)",
-               ]
+    @property
+    def scriptAttempts(self):
+        "The number of attempts with different script keywords"
+        return len(self.keywords)
+
+    @property
+    def maxAttempts(self):
+        "The total number of attempts to try"
+        return 2 * len(self.keywords)
+
+    def inputFileKeywords(self, attempt):
+        """
+        Return the top keywords for attempt number `attempt`.
+
+        NB. `attempt`s begin at 1, not 0.
+        """
+        assert attempt <= self.maxAttempts
+        if attempt > self.scriptAttempts:
+            attempt -= self.scriptAttempts
+        return self.keywords[attempt-1]

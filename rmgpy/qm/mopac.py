@@ -321,14 +321,27 @@ class MopacMolPMn(MopacMol):
 
         return top_keys, bottom_keys, polar_keys
 
-class MopacMolPM3(MopacMolPMn):
-    """
-    Mopac PM3 calculations for molecules
-    
-    This is a class of its own in case you wish to do anything differently,
-    but for now it's the same as all the MOPAC PMn calculations, only pm3
-    """
-    pm_method = 'pm3'
+#TS
+class MopacTS(QMReaction, Mopac):
+    #*****change this for TS
+    "Keywords for the multiplicity"
+    multiplicityKeywords = {}
+    multiplicityKeywords[1] = ''
+    multiplicityKeywords[2] = 'uhf doublet'
+    multiplicityKeywords[3] = 'uhf triplet'
+    multiplicityKeywords[4] = 'uhf quartet'
+    multiplicityKeywords[5] = 'uhf quintet'
+    multiplicityKeywords[6] = 'uhf sextet'
+    multiplicityKeywords[7] = 'uhf septet'
+    multiplicityKeywords[8] = 'uhf octet'
+    multiplicityKeywords[9] = 'uhf nonet'
+
+    "Keywords that will be added at the top of the qm input file"
+    keywordsTop = {}
+    keywordsTop[1] = "ts"
+    keywordsTop[2] = "ts recalc=5"
+    keywordsTop[3] = "ts ddmin=0.0001"
+    keywordsTop[4] = "ts recalc=5 ddmin=0.0001"
 
 class MopacMolPM6(MopacMolPMn):
     """
