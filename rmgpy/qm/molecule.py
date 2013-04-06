@@ -20,6 +20,10 @@ import qmdata
 from qmdata import CCLibData
 from rmgpy.molecule import parser
 
+class RDKitFailedError(Exception):
+    """For when RDkit failed. try the next reaction """
+    pass
+    
 class Geometry:
     """
     A geometry, used for quantum calculations.
@@ -151,8 +155,7 @@ class Geometry:
                 except ValueError:
                     pass
                 except RuntimeError:
-                    import ipdb; ipdb.set_trace()
-                    pass
+                    raise RDKitFailedError()
                 else:
                     break
             crude = Chem.Mol(rdmol.ToBinary())
