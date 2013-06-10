@@ -127,7 +127,8 @@ class Species(rmgpy.species.Species):
         if Species.solventData and not "Liquid thermo library" in thermo0.comment:
             #logging.info("Making solvent correction for {0}".format(Species.solventName))
             soluteData = database.solvation.getSoluteData(self)
-            solvation_correction = database.solvation.getSolvationCorrection(soluteData, Species.solventData)
+            self.soluteData = soluteData
+            solvation_correction =  database.solvation.getSolvationCorrection(soluteData, Species.solventData)
             # correction is added to the entropy and enthalpy
             wilhoit.S0.value_si = (wilhoit.S0.value_si + solvation_correction.entropy)
             wilhoit.H0.value_si = (wilhoit.H0.value_si + solvation_correction.enthalpy)
@@ -580,7 +581,13 @@ class CoreEdgeReactionModel:
 
         if checkExisting:
             found, rxn = self.checkForExistingReaction(forward)
-            if found: return rxn, False
+            if found:
+                if isinstance(forward, TemplateReaction) and isinstance(rxn, LibraryReaction):
+                    rxn.family = forward.family # this may break stuff
+                    rxn.kinetics.comment += "\nMatched a reaction from the family {0!s}".format(forward.family)
+                    logging.info("Rxn {0} from {1} seems to be from family {2}".format(rxn, rxn.library, forward.family))
+                
+                return rxn, False
 
         # Generate the reaction pairs if not yet defined
         if forward.pairs is None:
