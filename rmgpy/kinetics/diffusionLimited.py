@@ -1,8 +1,7 @@
-import rmgpy.quantity as quantity
+
 import logging
-from rmgpy.species import Species
-from rmgpy.data.solvation import SolventData, SoluteData, SoluteGroups, SolvationDatabase
-from rmgpy.reaction import Reaction
+#from rmgpy.species import Species
+#from rmgpy.data.solvation import SolventData, SoluteData, SoluteGroups, SolvationDatabase
 
 
 class DiffusionLimited():
@@ -21,6 +20,18 @@ class DiffusionLimited():
     def getSolventViscosity(self, T):
         return self.solventData.getSolventViscosity(T)
               
+    def correctIntrinsicRate(self, reaction, k):
+        """
+        If it is an H-abstraction reaction, correct the intrinsic rate here (best place?)
+        """
+        if reaction.family.label == 'H_Abstraction':
+            logging.info("Correcting intrinsic rate for H_Abstraction reaction {0} {1!s} in solvent".format(reaction.index, reaction))
+            # get log10 of ratio of intrinsic constants k_solv/k_gas
+            correction = self.solventData.getIntrinsicCorrection()
+            return (10**correction)*k
+        else:
+            return k
+                
     def getEffectiveRate(self, reaction, T):
         """
         Return the ratio of k_eff to k_intrinsic, which is between 0 and 1.
@@ -34,11 +45,11 @@ class DiffusionLimited():
         intrinsicKinetics = reaction.kinetics
         reactants = len(reaction.reactants)
         products = len(reaction.products)
-        k_forward = intrinsicKinetics.getRateCoefficient(T,P=100e5)
+        
+        k_forward = self.correctIntrinsicRate(reaction, intrinsicKinetics.getRateCoefficient(T,P=100e5))      
         Keq = reaction.getEquilibriumConstant(T) # Kc
         k_reverse = k_forward / Keq
-        k_eff = k_forward
-        
+                          
         if reactants == 1:
             if products == 1:
                 k_eff = k_forward
@@ -75,7 +86,11 @@ class DiffusionLimited():
         radii = 0.0
         diffusivities = 0.0
         for spec in reacting:
-            soluteData = self.database.getSoluteData(spec)
+            try:
+                soluteData = spec.soluteData
+            except AttributeError:
+                logging.warning("Species didn't have soluteData.")
+                soluteData = self.database.getSoluteData(spec)
             # calculate radius with the McGowan volume and assuming sphere
             radius = ((75*soluteData.V/3.14159)**(1/3))/100
             diff = soluteData.getStokesDiffusivity(T, self.getSolventViscosity(T))
