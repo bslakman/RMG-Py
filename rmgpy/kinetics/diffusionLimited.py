@@ -25,7 +25,6 @@ class DiffusionLimited():
         If it is an H-abstraction reaction, correct the intrinsic rate here (best place?)
         """
         if reaction.family.label == 'H_Abstraction':
-            logging.info("Correcting intrinsic rate for H_Abstraction reaction {0} {1!s} in solvent".format(reaction.index, reaction))
             # get log10 of ratio of intrinsic constants k_solv/k_gas
             correction = self.solventData.getIntrinsicCorrection()
             return (10**correction)*k
