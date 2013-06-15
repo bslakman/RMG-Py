@@ -151,7 +151,7 @@ class Geometry:
                 Also need to consider handling other types of exceptions that may occur.
                 """
                 try:
-                    Pharm3D.EmbedLib.EmbedMol(rdmol, boundsMatrix)
+                    Pharm3D.EmbedLib.EmbedMol(rdmol, bm, atomMatch=match)
                 except ValueError:
                     pass
                 except RuntimeError:
@@ -159,14 +159,14 @@ class Geometry:
                 else:
                     break
             crude = Chem.Mol(rdmol.ToBinary())
-            rdmol, minEid = self.optimize(rdmol, boundsMatrix)
+            rdmol, minEid = self.optimize(rdmol, boundsMatrix=bm, atomMatch=match)
         
         self.writeMolFile(crude, self.getCrudeMolFilePath(), minEid)
         self.writeMolFile(rdmol, self.getRefinedMolFilePath(), minEid)
         
         return rdmol, minEid
     
-    def optimize(self, rdmol, boundsMatrix = None):
+    def optimize(self, rdmol, boundsMatrix=None, atomMatch=None):
         
         if boundsMatrix == None:
             energy=0.0
@@ -180,7 +180,7 @@ class Geometry:
                     minEid = i
                     lowestE = energy 
         else:
-            eBefore, eAfter = Pharm3D.EmbedLib.OptimizeMol(rdmol, boundsMatrix)
+            eBefore, eAfter = Pharm3D.EmbedLib.OptimizeMol(rdmol, boundsMatrix, atomMatches=atomMatch)
             minEid = 0
             
         return rdmol, minEid
