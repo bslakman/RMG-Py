@@ -50,7 +50,7 @@ from .depository import KineticsDepository
 from .groups import KineticsGroups
 from .rules import KineticsRules
 from rmgpy.kinetics.diffusionLimited import diffusionLimiter
-
+from .transitionstates import TransitionStates
 from rmgpy import settings
 ################################################################################
 
@@ -611,6 +611,10 @@ class KineticsFamily(Database):
             depository.load(fpath, local_context, global_context)
             self.depositories.append(depository)
        
+        self.TS = TransitionStates(label='{0}/TS'.format(self.label))
+        logging.debug("Loading transition state family info from {0}".format(os.path.join(path, 'TS_*')))
+        self.TS.load(path, local_context, global_context)
+
 	# Load solvation kinetic database for this family if it exists
         for subdir, dirs, files in os.walk(path):
             if os.path.exists(os.path.join(path, subdir, 'solvationGroups.py')):
