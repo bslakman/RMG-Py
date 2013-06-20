@@ -359,7 +359,6 @@ class KineticsFamily(Database):
         self.depositories = []
         # Transition state depositories of training and test data
         self.tsgroups = None
-        self.tsrules = None
         self.tsdepositories = []
 
 	# Database for solvation kinetic corrections
@@ -633,6 +632,7 @@ class KineticsFamily(Database):
             depository.load(fpath, local_context, global_context)
             self.tsdepositories.append(depository)
 
+        
 	# Load solvation kinetic database for this family if it exists
         for subdir, dirs, files in os.walk(path):
             if os.path.exists(os.path.join(path, subdir, 'solvationGroups.py')):
