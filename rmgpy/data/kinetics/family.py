@@ -45,8 +45,9 @@ from rmgpy.kinetics import Arrhenius, ArrheniusEP
 from rmgpy.molecule import Bond, GroupBond, Group, Molecule
 from rmgpy.species import Species
 
-from .common import KineticsError, UndeterminableKineticsError, saveEntry
-from .depository import KineticsDepository
+from .common import KineticsError, UndeterminableKineticsError, saveEntry, \
+                    UNIMOLECULAR_KINETICS_FAMILIES, BIMOLECULAR_KINETICS_FAMILIES
+from .depository import KineticsDepository, TransitionStateDepository
 from .groups import KineticsGroups
 from .rules import KineticsRules
 from rmgpy.kinetics.diffusionLimited import diffusionLimiter
@@ -356,6 +357,10 @@ class KineticsFamily(Database):
         self.groups = None
         self.rules = None
         self.depositories = []
+        # Transition state depositories of training and test data
+        self.tsgroups = None
+        self.tsrules = None
+        self.tsdepositories = []
 
 	# Database for solvation kinetic corrections
         from rmgpy.data.solvation import SolvationKinetics
@@ -614,6 +619,19 @@ class KineticsFamily(Database):
         self.TS = TransitionStates(label='{0}/TS'.format(self.label))
         logging.debug("Loading transition state family info from {0}".format(os.path.join(path, 'TS_*')))
         self.TS.load(path, local_context, global_context)
+
+        for name in (['TS_training'] if depositoryLabels is None else depositoryLabels) :
+            label = '{0}/{1}'.format(self.label, name)
+            f = name+'.py'
+            fpath = os.path.join(path,f)
+            if not os.path.exists(fpath):
+                logging.warning("Requested depository {0} does not exist".format(fpath))
+                continue
+            import ipdb; ipdb.set_trace()
+            depository = TransitionStateDepository(label=label)
+            logging.debug("Loading transitions state family depository from {0}".format(fpath))
+            depository.load(fpath, local_context, global_context)
+            self.tsdepositories.append(depository)
 
 	# Load solvation kinetic database for this family if it exists
         for subdir, dirs, files in os.walk(path):
