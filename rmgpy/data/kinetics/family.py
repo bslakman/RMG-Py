@@ -47,11 +47,11 @@ from rmgpy.species import Species
 
 from .common import KineticsError, UndeterminableKineticsError, saveEntry, \
                     UNIMOLECULAR_KINETICS_FAMILIES, BIMOLECULAR_KINETICS_FAMILIES
-from .depository import KineticsDepository, TransitionStateDepository
+from .depository import KineticsDepository
 from .groups import KineticsGroups
 from .rules import KineticsRules
 from rmgpy.kinetics.diffusionLimited import diffusionLimiter
-from .transitionstates import TransitionStates
+from .transitionstates import TSGroups, TransitionStates
 from rmgpy import settings
 ################################################################################
 
