@@ -357,9 +357,6 @@ class KineticsFamily(Database):
         self.groups = None
         self.rules = None
         self.depositories = []
-        # Transition state depositories of training and test data
-        self.tsgroups = None
-        self.tsdepositories = []
 
 	# Database for solvation kinetic corrections
         from rmgpy.data.solvation import SolvationKinetics
