@@ -357,6 +357,8 @@ class KineticsFamily(Database):
         self.groups = None
         self.rules = None
         self.depositories = []
+        #: Transition state estimator database
+        self.transitionStates = None
 
 	# Database for solvation kinetic corrections
         from rmgpy.data.solvation import SolvationKinetics
@@ -612,23 +614,10 @@ class KineticsFamily(Database):
             depository.load(fpath, local_context, global_context)
             self.depositories.append(depository)
        
-        self.TS = TransitionStates(label='{0}/TS'.format(self.label))
-        logging.debug("Loading transition state family info from {0}".format(os.path.join(path, 'TS_*')))
-        self.TS.load(path, local_context, global_context)
-
-        for name in (['TS_training'] if depositoryLabels is None else depositoryLabels) :
-            label = '{0}/{1}'.format(self.label, name)
-            f = name+'.py'
-            fpath = os.path.join(path,f)
-            if not os.path.exists(fpath):
-                logging.warning("Requested depository {0} does not exist".format(fpath))
-                continue
-            import ipdb; ipdb.set_trace()
-            depository = TransitionStateDepository(label=label)
-            logging.debug("Loading transitions state family depository from {0}".format(fpath))
-            depository.load(fpath, local_context, global_context)
-            self.tsdepositories.append(depository)
-
+        # Create and load a transition states database if possible
+        if os.path.exists(os.path.join(path, 'TS_groups.py')):
+            logging.debug("Loading transition state groups for {0}".format(path))
+            self.transitionStates = TransitionStates()
         
 	# Load solvation kinetic database for this family if it exists
         for subdir, dirs, files in os.walk(path):
