@@ -1108,7 +1108,11 @@ class KineticsFamily(Database):
         else:
             self.reverseRecipe.applyForward(reactantStructure, unique)
         productStructure = reactantStructure
-
+        
+        if getTS:
+            transitionStateStructure.append(productStructure.copy(deep=True)) # before resorting, merged products
+            return productStructure.split(), transitionStateStructure
+            
         # Hardcoding of reaction family for reverse of radical recombination
         # (Unimolecular homolysis)
         # Because the two products are identical, they should the same tags
