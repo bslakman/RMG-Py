@@ -1040,8 +1040,27 @@ class KineticsFamily(Database):
             rootTemplate = self.getRootTemplate()
             alreadyDone = {}
         self.rules.fillRulesByAveragingUp(rootTemplate, alreadyDone)
+            
+    def reactantMatch(self, reactant, templateReactant):
+        """
+        Return ``True`` if the provided reactant matches the provided
+        template reactant and ``False`` if not, along with a complete list of
+        the identified mappings.
+        """
+        mapsList = []
+        if templateReactant.__class__ == list: templateReactant = templateReactant[0]
+        struct = self.dictionary[templateReactant]
 
-    def applyRecipe(self, reactantStructures, forward=True, unique=True):
+        if isinstance(struct, LogicNode):
+            for child_structure in struct.getPossibleStructures(self.dictionary):
+                ismatch, mappings = reactant.findSubgraphIsomorphisms(child_structure)
+                if ismatch:
+                    mapsList.extend(mappings)
+            return len(mapsList) > 0, mapsList
+        elif isinstance(struct, Molecule):
+            return reactant.findSubgraphIsomorphisms(struct)
+
+    def applyRecipe(self, reactantStructures, forward=True, unique=True, getTS=False):
         """
         Apply the recipe for this reaction family to the list of
         :class:`Molecule` objects `reactantStructures`. The atoms
@@ -1077,6 +1096,11 @@ class KineticsFamily(Database):
                     atom.label = '*' + str(identicalCenterCounter)
             if identicalCenterCounter != 2:
                 raise KineticsError('Unable to change labels from "*" to "*1" and "*2" for reaction family {0}.'.format(label))
+
+        if getTS:
+            transitionStateStructure = list()
+            transitionStateStructure.append(reactantStructure.copy(deep=True)) # before resorting, merged reactants
+
 
         # Generate the product structure by applying the recipe
         if forward:
@@ -1160,7 +1184,10 @@ class KineticsFamily(Database):
                 struct.update()
 
         # Return the product structures
-        return productStructures
+        if getTS:
+            return productStructures, transitionStateStructure
+        else:
+            return productStructures
 
     def __generateProductStructures(self, reactantStructures, maps, forward):
         """
@@ -1191,7 +1218,10 @@ class KineticsFamily(Database):
 
         # Generate the product structures by applying the forward reaction recipe
         try:
-            productStructures = self.applyRecipe(reactantStructures, forward=forward)
+            if getTS:
+                productStructures, transitionStateStructure = self.applyRecipe(reactantStructures, forward=forward, getTS=True)
+            else:
+                productStructures = self.applyRecipe(reactantStructures, forward=forward)
             if not productStructures: return None
         except InvalidActionError:
 #            logging.error('Unable to apply reaction recipe!')
@@ -1367,6 +1397,11 @@ class KineticsFamily(Database):
         be a list of :class:`Molecule` objects, each representing a resonance
         isomer of the species of interest.
         """
+        
+        ## This would make all calls to __generateProductStructures() also return
+        ## the "transition state structure", a list containing [merged_reactants, merged_products]
+        ## with the atom ordering consistent (needed for double-ended searches):
+        # options['getTS']=True
 
         rxnList = []; speciesList = []
 
