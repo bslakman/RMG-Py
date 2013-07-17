@@ -1,8 +1,44 @@
 
 import logging
+import math
 #from rmgpy.species import Species
 #from rmgpy.data.solvation import SolventData, SoluteData, SoluteGroups, SolvationDatabase
 
+
+class LiquidKinetics():
+    """
+    Object for correcting a reaction's intrinsic rate, based on its solvent, reaction 
+    family and intrinsic rate in the gas phase. Created and called by the 
+    diffusionLimiter, since if solvent is present, both affect the rate.
+    """
+    
+    def __init__(self, reaction, solventData):
+        self.reaction = reaction
+        self.solventData = solventData
+    
+    def correctIntrinsicRate(self, T):
+        
+        gasKinetics = self.reaction.kinetics
+        k = gasKinetics.getRateCoefficient(T, P=1E5)
+        
+        """
+        If it is an H-abstraction reaction, correct the intrinsic rate here (best place?)
+        """
+        if self.reaction.family.label == 'H_Abstraction':
+            # get log10 of ratio of intrinsic constants k_solv/k_gas
+            correction = self.solventData.getHAbsCorrection()
+            return (10**correction)*k
+        else:
+            return k
+        if self.reaction.family.label == 'R_Addition_MultipleBond':
+            # get x, the correction to the barrier
+            x = 0
+            # Assume Arrhenius, so correct k accordingly
+            return k*math.exp(-x/8.314/T)
+        if self.reaction.family.label == 'Beta_Scission':
+            # rate increases with Dimroth-Reichardt
+            return k
+        return k
 
 class DiffusionLimited():
 
@@ -19,17 +55,7 @@ class DiffusionLimited():
 
     def getSolventViscosity(self, T):
         return self.solventData.getSolventViscosity(T)
-              
-    def correctIntrinsicRate(self, reaction, k):
-        """
-        If it is an H-abstraction reaction, correct the intrinsic rate here (best place?)
-        """
-        if reaction.family.label == 'H_Abstraction':
-            # get log10 of ratio of intrinsic constants k_solv/k_gas
-            correction = self.solventData.getIntrinsicCorrection()
-            return (10**correction)*k
-        else:
-            return k
+            
                 
     def getEffectiveRate(self, reaction, T):
         """
@@ -41,11 +67,12 @@ class DiffusionLimited():
         For 2<=>2 reactions, the faster direction is limited.
         For 2<=>1 or 2<=>3 reactions, the forward rate is limited.
         """
-        intrinsicKinetics = reaction.kinetics
+        liquidKinetics = LiquidKinetics(reaction, self.solventData)
+        
         reactants = len(reaction.reactants)
         products = len(reaction.products)
         
-        k_forward = self.correctIntrinsicRate(reaction, intrinsicKinetics.getRateCoefficient(T,P=100e5))      
+        k_forward = liquidKinetics.correctIntrinsicRate(T)      
         Keq = reaction.getEquilibriumConstant(T) # Kc
         k_reverse = k_forward / Keq
                           
