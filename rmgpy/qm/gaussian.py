@@ -8,6 +8,7 @@ import re
 from rmgpy.molecule import Molecule
 from qmdata import CCLibData
 from molecule import QMMolecule
+from reaction import QMReaction
 
 class Gaussian:
     """
@@ -33,13 +34,6 @@ class Gaussian:
         executablePath = os.path.join(gaussEnv , '(g03 or g09)')
 
     usePolar = False
-    
-    #: List of phrases that indicate failure
-    #: NONE of these must be present in a succesful job.
-    failureKeys = [
-                   'ERROR TERMINATION',
-                   'IMAGINARY FREQUENCIES'
-                   ]
     
     #: List of phrases to indicate success.
     #: ALL of these must be present in a successful job.
@@ -72,10 +66,9 @@ class Gaussian:
         2) NOT finding any of the keywords that are denote a calculation failure
         3) finding all the keywords that denote a calculation success.
         4) finding a match between the InChI of the given molecule and the InchI found in the calculation files
-        5) checking that the optimized geometry, when connected by single bonds, is isomorphic with self.molecule (converted to single bonds)
-
-        If any of the above criteria is not matched, False will be returned.
-        If all are satisfied, it will return True.
+        
+        If any of the above criteria is not matched, False will be returned and the procedures to start a new calculation 
+        will be initiated.
         """
         if not os.path.exists(self.outputFilePath):
             logging.info("Output file {0} does not exist.".format(self.outputFilePath))
@@ -95,7 +88,7 @@ class Gaussian:
                     if element in line:
                         logging.error("Gaussian output file contains the following error: {0}".format(element) )
                         return False
-
+                    
                 for element in self.successKeys: #search for success keywords
                     if element in line:
                         successKeysFound[element] = True
@@ -103,139 +96,79 @@ class Gaussian:
                 if line.startswith("InChI="):
                     logFileInChI = line #output files should take up to 240 characters of the name in the input file
                     InChIFound = True
-                    if self.uniqueIDlong in logFileInChI:
+                    if logFileInChI == self.geometry.uniqueIDlong:
                         InChIMatch = True
-                    elif self.uniqueIDlong.startswith(logFileInChI):
+                    elif self.geometry.uniqueIDlong.startswith(logFileInChI):
                         logging.info("InChI too long to check, but beginning matches so assuming OK.")
                         InChIMatch = True
                     else:
-                        logging.warning("InChI in log file ({0}) didn't match that in geometry ({1}).".format(logFileInChI, self.geometry.uniqueIDlong))                    
-                        if self.geometry.uniqueIDlong.startswith(logFileInChI):
-                            logging.warning("but the beginning matches so it's probably just a truncation problem.")
-                            InChIMatch = True
+                        logging.info("InChI in log file didn't match that in geometry.")
+                        logging.info(self.geometry.uniqueIDlong)
+                        logging.info(logFileInChI)
+        
         # Check that ALL 'success' keywords were found in the file.
         if not all( successKeysFound.values() ):
-            logging.error('Not all of the required keywords for success were found in the output file!')
+            logging.error('Not all of the required keywords for sucess were found in the output file!')
             return False
         
         if not InChIFound:
             logging.error("No InChI was found in the Gaussian output file {0}".format(self.outputFilePath))
             return False
         
-        if not InChIMatch:
-            #InChIs do not match (most likely due to limited name length mirrored in log file (240 characters), but possibly due to a collision)
-            return self.checkForInChiKeyCollision(logFileInChI) # Not yet implemented!
-
-        # Compare the optimized geometry to the original molecule
-        qmData = self.parse()
-        cclibMol = Molecule()
-        cclibMol.fromXYZ(qmData.atomicNumbers, qmData.atomCoords.value)
-        testMol = self.molecule.toSingleBonds()
-        if not cclibMol.isIsomorphic(testMol):
-            logging.info("Incorrect connectivity for optimized geometry in file {0}".format(self.outputFilePath))
-            return False
-
-        logging.info("Successful {1} quantum result in {0}".format(self.outputFilePath, self.__class__.__name__))
-        return True
+        if InChIMatch:
+            logging.info("Successful Gaussian quantum result found in {0}".format(self.outputFilePath))
+            # " + self.molfile.name + " ("+self.molfile.InChIAug+") has been found. This log file will be used.")
+            return True
+        else:
+            return False # until the next line works
         
-    def parse(self):
-        """
-        Parses the results of the Gaussian calculation, and returns a CCLibData object.
-        """
-        parser = cclib.parser.Gaussian(self.outputFilePath)
-        parser.logger.setLevel(logging.ERROR) #cf. http://cclib.sourceforge.net/wiki/index.php/Using_cclib#Additional_information
-        cclibData = parser.parse()
-        radicalNumber = sum([i.radicalElectrons for i in self.molecule.atoms])
-        qmData = CCLibData(cclibData, radicalNumber+1)
-        return qmData
+        #InChIs do not match (most likely due to limited name length mirrored in log file (240 characters), but possibly due to a collision)
+        return self.checkForInChiKeyCollision(logFileInChI) # Not yet implemented!
 
-    
-class GaussianMol(QMMolecule, Gaussian):
-    """
-    A base Class for calculations of molecules using Gaussian. 
-    
-    Inherits from both :class:`QMMolecule` and :class:`Gaussian`.
-    """
-    
+class GaussianMolPM3(GaussianMol):
+
+    #: Keywords that will be added at the top of the qm input files
+    keywords = [
+               "# pm3 opt=(verytight,gdiis) freq IOP(2/16=3)",
+               "# pm3 opt=(verytight,gdiis) freq IOP(2/16=3) IOP(4/21=2)",
+               "# pm3 opt=(verytight,calcfc,maxcyc=200) freq IOP(2/16=3) nosymm" ,
+               "# pm3 opt=(verytight,calcfc,maxcyc=200) freq=numerical IOP(2/16=3) nosymm",
+               "# pm3 opt=(verytight,gdiis,small) freq IOP(2/16=3)",
+               "# pm3 opt=(verytight,nolinear,calcfc,small) freq IOP(2/16=3)",
+               "# pm3 opt=(verytight,gdiis,maxcyc=200) freq=numerical IOP(2/16=3)",
+               "# pm3 opt=tight freq IOP(2/16=3)",
+               "# pm3 opt=tight freq=numerical IOP(2/16=3)",
+               "# pm3 opt=(tight,nolinear,calcfc,small,maxcyc=200) freq IOP(2/16=3)",
+               "# pm3 opt freq IOP(2/16=3)",
+               "# pm3 opt=(verytight,gdiis) freq=numerical IOP(2/16=3) IOP(4/21=200)",
+               "# pm3 opt=(calcfc,verytight,newton,notrustupdate,small,maxcyc=100,maxstep=100) freq=(numerical,step=10) IOP(2/16=3) nosymm",
+               "# pm3 opt=(tight,gdiis,small,maxcyc=200,maxstep=100) freq=numerical IOP(2/16=3) nosymm",
+               "# pm3 opt=(tight,gdiis,small,maxcyc=200,maxstep=100) freq=numerical IOP(2/16=3) nosymm",
+               "# pm3 opt=(verytight,gdiis,calcall,small,maxcyc=200) IOP(2/16=3) IOP(4/21=2) nosymm",
+               "# pm3 opt=(verytight,gdiis,calcall,small) IOP(2/16=3) nosymm",
+               "# pm3 opt=(calcall,small,maxcyc=100) IOP(2/16=3)",
+               ]
+
+    @property
+    def scriptAttempts(self):
+        "The number of attempts with different script keywords"
+        return len(self.keywords)
+
+    @property
+    def maxAttempts(self):
+        "The total number of attempts to try"
+        return 2 * len(self.keywords)
+
     def inputFileKeywords(self, attempt):
         """
         Return the top keywords for attempt number `attempt`.
-    
-        NB. `attempt` begins at 1, not 0.
+
+        NB. `attempt`s begin at 1, not 0.
         """
         assert attempt <= self.maxAttempts
         if attempt > self.scriptAttempts:
             attempt -= self.scriptAttempts
         return self.keywords[attempt-1]
-    
-    def writeInputFile(self, attempt):
-        """
-        Using the :class:`Geometry` object, write the input file
-        for the `attempt`.
-        """
-        molfile = self.getMolFilePathForCalculation(attempt) 
-        atomline = re.compile('\s*([\- ][0-9.]+\s+[\-0-9.]+\s+[\-0-9.]+)\s+([A-Za-z]+)')
-        
-        output = ['', self.geometry.uniqueIDlong, '' ]
-        output.append("{charge}   {mult}".format(charge=0, mult=(self.molecule.getRadicalCount() + 1) ))
-        
-        atomCount = 0
-        with open(molfile) as molinput:
-            for line in molinput:
-                match = atomline.match(line)
-                if match:
-                    output.append("{0:8s} {1}".format(match.group(2), match.group(1)))
-                    atomCount += 1
-        assert atomCount == len(self.molecule.atoms)
-    
-        output.append('')
-        input_string = '\n'.join(output)
-        
-        top_keys = self.inputFileKeywords(attempt)
-        with open(self.inputFilePath, 'w') as gaussianFile:
-            gaussianFile.write(top_keys)
-            gaussianFile.write('\n')
-            gaussianFile.write(input_string)
-            gaussianFile.write('\n')
-            if self.usePolar:
-                gaussianFile.write('\n\n\n')
-                raise NotImplementedError("Not sure what should be here, if anything.")
-                #gaussianFile.write(polar_keys)
-    
-    def generateQMData(self):
-        """
-        Calculate the QM data and return a QMData object.
-        """
-        for atom in self.molecule.vertices:
-            if atom.atomType.label in ('N5s', 'N5d', 'N5dd', 'N5t', 'N5b'):
-                return None
-                
-        if self.verifyOutputFile():
-            logging.info("Found a successful output file already; using that.")
-            source = "QM {0} calculation found from previous run.".format(self.__class__.__name__)
-        else:
-            self.createGeometry()
-            success = False
-            for attempt in range(1, self.maxAttempts+1):
-                self.writeInputFile(attempt)
-                logging.info('Trying {3} attempt {0} of {1} on molecule {2}.'.format(attempt, self.maxAttempts, self.molecule.toSMILES(), self.__class__.__name__))
-                success = self.run()
-                if success:
-                    logging.info('Attempt {0} of {1} on species {2} succeeded.'.format(attempt, self.maxAttempts, self.molecule.toAugmentedInChI()))
-                    source = "QM {0} calculation attempt {1}".format(self.__class__.__name__, attempt )
-                    break
-            else:
-                logging.error('QM thermo calculation failed for {0}.'.format(self.molecule.toAugmentedInChI()))
-                return None
-        result = self.parse() # parsed in cclib
-        result.source = source
-        return result # a CCLibData object
-        
-    def getParser(self, outputFile):
-        """
-        Returns the appropriate cclib parser.
-        """
-        return cclib.parser.Gaussian(outputFile)
 
 class GaussianMolPM3(GaussianMol):
     """
@@ -287,3 +220,228 @@ class GaussianMolPM3(GaussianMol):
         if attempt > self.scriptAttempts:
             attempt -= self.scriptAttempts
         return self.keywords[attempt-1]
+
+##########################################################################################
+
+class GaussianTS(QMReaction, Gaussian):
+    """
+    A base Class for calculations of transition states using Gaussian. 
+
+    Inherits from both :class:`QMReaction` and :class:`Gaussian`.
+    """
+    
+    
+    #: List of phrases that indicate failure
+    #: NONE of these must be present in a succesful job.
+    failureKeys = [
+                   'ERROR TERMINATION',
+                   ]
+    
+    def writeInputFile(self, attempt):
+        """
+        Using the :class:`Geometry` object, write the input file
+        for the `attmept`th attempt.
+        """
+        chk_file = '%chk=' + self.uniqueID
+        obConversion = openbabel.OBConversion()
+        obConversion.SetInAndOutFormats("mol", "gjf")
+        mol = openbabel.OBMol()
+        
+        obConversion.ReadFile(mol, self.geometry.getRefinedMolFilePath() )
+        
+        mol.SetTitle(self.uniqueID)
+        obConversion.SetOptions('k', openbabel.OBConversion.OUTOPTIONS)
+        input_string = obConversion.WriteString(mol)
+        numProc = '%nprocshared=' + '4' # could be something that could be set in the qmSettings
+        top_keys = self.keywords[0]
+        title = ' ' + self.uniqueID
+        with open(self.inputFilePath, 'w') as gaussianFile:
+            gaussianFile.write(numProc)
+            gaussianFile.write('\n')
+            gaussianFile.write(chk_file)
+            gaussianFile.write('\n')
+            gaussianFile.write(top_keys)
+            gaussianFile.write(input_string)
+    
+    def writeIRCFile(self):
+        """
+        Using the :class:`Geometry` object, write the input file for the 
+        IRC calculation on the transition state. The geometry is taken 
+        from the checkpoint file created during the geometry search.
+        """
+        chk_file = '%chk=' + self.uniqueID
+        numProc = '%nprocshared=' + '4' # could be something that could be set in the qmSettings
+        top_keys = self.keywords[2]
+        chrgMult = '1 2'
+        with open(self.inputFilePath, 'w') as gaussianFile:
+            gaussianFile.write(numProc)
+            gaussianFile.write('\n')
+            gaussianFile.write(chk_file)
+            gaussianFile.write('\n')
+            gaussianFile.write(top_keys)
+            gaussianFile.write('\n\n')
+            gaussianFile.write(chrgMult)
+            gaussianFile.write('\n\n')
+            
+    def inputFileKeywords(self, attempt):
+        """
+        Return the top keywords.
+        """
+        raise NotImplementedError("Should be defined by subclass, eg. GaussianTSM062X")
+
+    def generateQMKinetics(self):
+        """
+        Calculate the QM data and return a QMData object.
+        """
+        self.createGeometry()
+        if self.verifyOutputFile():
+            logging.info("Found a successful output file already; using that.")
+        else:
+            success = False
+            for attempt in range(1, self.maxAttempts+1):
+                self.writeInputFile(attempt)
+                self.writeIRCFile()
+                success = self.run()
+                if success:
+                    logging.info('Attempt {0} of {1} on species {2} succeeded.'.format(attempt, self.maxAttempts, self.molecule.toAugmentedInChI()))
+                    break
+            else:
+                raise Exception('QM thermo calculation failed for {0}.'.format(self.molecule.toAugmentedInChI()))
+        result = self.parse() # parsed in cclib
+        return result
+    
+    def verifyOutputFile(self):
+        """
+        Check's that an output file exists and was successful.
+        
+        Returns a boolean flag that states whether a successful GAUSSIAN simulation already exists for the molecule with the 
+        given (augmented) InChI Key.
+        
+        The definition of finding a successful simulation is based on these criteria:
+        1) finding an output file with the file name equal to the the reaction unique ID
+        2) NOT finding any of the keywords that are denote a calculation failure
+        3) finding all the keywords that denote a calculation success.
+        
+        If any of the above criteria is not matched, False will be returned and the procedures to start a new calculation 
+        will be initiated.
+        """
+        if not os.path.exists(self.outputFilePath):
+            logging.info("Output file {0} does not exist.".format(self.outputFilePath))
+            return False
+        
+        # Initialize dictionary with "False"s 
+        successKeysFound = dict([(key, False) for key in self.successKeys])
+        
+        with open(self.outputFilePath) as outputFile:
+            for line in outputFile:
+                line = line.strip()
+                
+                for element in self.failureKeys: #search for failure keywords
+                    if element in line:
+                        logging.error("Gaussian output file contains the following error: {0}".format(element) )
+                        return False
+                    
+                for element in self.successKeys: #search for success keywords
+                    if element in line:
+                        successKeysFound[element] = True
+        
+        # Check that ALL 'success' keywords were found in the file.
+        if not all( successKeysFound.values() ):
+            logging.error('Not all of the required keywords for sucess were found in the output file!')
+            return False
+        else:
+            return True
+    
+    def verifyTSGeometry(self):
+        """
+        Check's that the resulting geometries of the path analysis match the reaction.
+        """
+        
+        """
+        Compares IRC geometries to input geometries.
+        """
+        # Search IRC output for steps on each side of the path
+        readFile = file(ircOutput)
+        pth1 = list()
+        steps = list()
+        for line in readFile.readlines():
+            if line.startswith(' Point Number:'):
+                if int(line.split()[2]) > 0:
+                    if int(line.split()[-1]) == 1:
+                        ptNum = int(line.split()[2])
+                        pth1.append(ptNum)
+                    else:
+                        pass
+            elif line.startswith('  # OF STEPS ='):
+                numStp = int(line.split()[-1])
+                steps.append(numStp)
+        
+        # This indexes the coordinate to be used from the parsing
+        if steps == []:
+            notes = ' IRC failed '
+            return 0, notes
+        else:
+            pth1End = sum(steps[:pth1[-1]])		
+            # Compare the reactants and products
+            ircParse = external.cclib.parser.Gaussian(ircOutput)
+            ircParse = ircParse.parse()
+        
+            atomnos = ircParse.atomnos
+            atomcoords = ircParse.atomcoords
+        
+            # Convert the IRC geometries into RMG molecules
+            # We don't know which is reactant or product, so take the two at the end of the
+            # paths and compare to the reactants and products
+        
+            mol1 = fromXYZ(atomcoords[pth1End], atomnos)
+            mol2 = fromXYZ(atomcoords[-1], atomnos)
+            
+            # Had trouble with isIsomorphic, but resetting the connectivity seems to fix it (WHY??).
+            reactant.resetConnectivityValues()
+            product.resetConnectivityValues()
+            mol1.resetConnectivityValues()
+            mol2.resetConnectivityValues()
+            
+            if reactant.isIsomorphic(mol1) and product.isIsomorphic(mol2):
+                    notes = 'Verified TS'
+                    return 1, notes
+            elif reactant.isIsomorphic(mol2) and product.isIsomorphic(mol1):
+                    notes = 'Verified TS'
+                    return 1, notes
+            else:
+                notes = 'Saddle found, but wrong one'
+                return 0, notes
+        
+class GaussianTSM062X(GaussianTS):
+
+    #: Keywords that will be added at the top of the qm input file
+    keywords = [
+               "# m062x/6-31+g(d,p) opt=(ts,calcall,tight,noeigentest)  int=ultrafine nosymm",
+               "# m062x/6-31+g(d,p) opt=(ts,calcall,noeigentest) nosymm",
+               "# m062x/6-31+g(d,p) irc=(calcall,report=read) geom=allcheck guess=check nosymm",
+               ]
+    """
+    This needs some work, to determine options that are best used. Commented out the
+    methods for now.
+    """
+    
+    # @property
+    # def scriptAttempts(self):
+    #     "The number of attempts with different script keywords"
+    #     return len(self.keywords)
+    # 
+    # @property
+    # def maxAttempts(self):
+    #     "The total number of attempts to try"
+    #     return 2 * len(self.keywords)
+    # 
+    # def inputFileKeywords(self, attempt):
+    #     """
+    #     Return the top keywords for attempt number `attempt`.
+    # 
+    #     NB. `attempt`s begin at 1, not 0.
+    #     """
+    #     assert attempt <= self.maxAttempts
+    #     if attempt > self.scriptAttempts:
+    #         attempt -= self.scriptAttempts
+    #     return self.keywords[attempt-1]
