@@ -73,6 +73,10 @@ cdef class Atom(Vertex):
     cpdef setSpinMultiplicity(self, int spinMultiplicity)
     
 ################################################################################
+
+cpdef object SMILEwriter
+
+cpdef float distanceSquared(Atom atom1, Atom atom2)
     
 cdef class Bond(Edge):
 

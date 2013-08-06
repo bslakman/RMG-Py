@@ -105,7 +105,7 @@ class Geometry:
         if atoms > 3:#this check prevents the number of attempts from being negative
             distGeomAttempts = 5*(atoms-3) #number of conformer attempts is just a linear scaling with molecule size, due to time considerations in practice, it is probably more like 3^(n-3) or something like that
         
-        rdmol, minEid = self.rd_embed(rdmol, distGeomAttempts)
+        rdmol, minEid = self.rd_embed(rdmol, distGeomAttempts, bm=boundsMatrix, match=atomMatch)
         self.saveCoordinatesFromRDMol(rdmol, minEid, rdAtIdx)
         
     def rd_build(self):
@@ -186,7 +186,7 @@ class Geometry:
         with open(path, 'w') as out3Dcrude:
             out3Dcrude.write(Chem.MolToMolBlock(mol,confId=minEid))
     
-    def save_coordinates(self, rdmol, minEid, rdAtIdx):
+    def saveCoordinatesFromRDMol(self, rdmol, minEid, rdAtIdx):
         # Save xyz coordinates on each atom in molecule ****
         for atom in self.molecule.atoms:
             point = rdmol.GetConformer(minEid).GetAtomPosition(atom.sortingLabel)

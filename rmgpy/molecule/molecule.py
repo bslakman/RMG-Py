@@ -112,6 +112,7 @@ class Atom(Vertex):
     def __reduce__(self):
         """
         A helper function used when pickling an object.
+        Atomic coords are not saved.
         """
         d = {
             'edges': self.edges,
@@ -144,6 +145,9 @@ class Atom(Vertex):
 
     @property
     def symbol(self): return self.element.symbol
+    
+    @property
+    def radius(self): return self.element.radius
 
     @property
     def bonds(self): return self.edges
@@ -562,8 +566,18 @@ class Bond(Edge):
         else:
             raise ActionError('Unable to update GroupBond: Invalid action {0}.'.format(action))
 
-#################################################################################
-    
+################################################################################
+SMILEwriter = openbabel.OBConversion()
+SMILEwriter.SetOutFormat('smi')
+SMILEwriter.SetOptions("i",SMILEwriter.OUTOPTIONS) # turn off isomer and stereochemistry information (the @ signs!)
+
+def distanceSquared(atom1, atom2):
+    """
+    Return the square of the distance (in Angstrom) between the two atoms.
+    """
+    diff = (atom1.coords - atom2.coords)
+    return sum(diff * diff)
+
 class Molecule(Graph):
     """
     A representation of a molecular structure using a graph data type, extending
@@ -853,52 +867,27 @@ class Molecule(Graph):
         # Remove the hydrogen atoms from the structure
         for atom in hydrogens:
             self.removeAtom(atom)
-
+            
     def connectTheDots(self):
         """
         Delete all bonds, and set them again based on the Atoms' coords.
         Does not detect bond type.
         """
         cython.declare(criticalDistance=float, i=int, atom1=Atom, atom2=Atom,
-                       bond=Bond, atoms=list, zBoundary=float)
-                       # groupBond=GroupBond, 
+                       bond=Bond, groupBond=GroupBond, atoms=list)
         self._fingerprint = None
-        
         atoms = self.vertices
-        
-        # Ensure there are coordinates to work with
-        for atom in atoms:
-            assert len(atom.coords) != 0
-        
-        # If there are any bonds, remove them
         for atom1 in atoms:
             for bond in self.getBonds(atom1):
                 self.removeEdge(bond)
-        
-        # Sort atoms by distance on the z-axis
-        sortedAtoms = sorted(atoms, key=lambda x: x.coords[2])
-        
-        for i, atom1 in enumerate(sortedAtoms):
-            for atom2 in sortedAtoms[i+1:]:
-                # Set upper limit for bond distance
-                criticalDistance = (atom1.element.covRadius + atom2.element.covRadius + 0.45)**2
-                
-                # First atom that is more than 4.0 Anstroms away in the z-axis, break the loop
-                # Atoms are sorted along the z-axis, so all following atoms should be even further
-                zBoundary = (atom1.coords[2] - atom2.coords[2])**2
-                if zBoundary > 16.0:
-                    break
-                
-                distanceSquared = sum((atom1.coords - atom2.coords)**2)
-                
-                if distanceSquared > criticalDistance or distanceSquared < 0.40:
-                    continue
-                else:
-                    # groupBond = GroupBond(atom1, atom2, ['S','D','T','B'])
-                    bond = Bond(atom1, atom2, 'S')
+        for i, atom1 in enumerate(atoms):
+            for atom2 in atoms[i+1:]:
+                criticalDistance = atom1.radius + atom2.radius + 0.2
+                if distanceSquared(atom1,atom2) < (criticalDistance * criticalDistance):
+                    groupBond = GroupBond(atom1, atom2, ['S','D','T','B'])
                     self.addBond(bond)
         self.updateAtomTypes()
-        
+
     def updateAtomTypes(self):
         """
         Iterate through the atoms in the structure, checking their atom types
