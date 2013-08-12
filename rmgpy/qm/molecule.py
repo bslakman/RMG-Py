@@ -142,6 +142,7 @@ class Geometry:
             crude = Chem.Mol(rdmol.ToBinary())
             rdmol, minEid = self.optimize(rdmol)
         else:
+            rdmol.RemoveAllConformers()
             for i in range(0,numConfAttempts):
                 """
                 Embed the molecule according to the bounds matrix. Built to handle possible failures
