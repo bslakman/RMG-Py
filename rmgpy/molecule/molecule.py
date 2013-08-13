@@ -875,17 +875,39 @@ class Molecule(Graph):
         Does not detect bond type.
         """
         cython.declare(criticalDistance=float, i=int, atom1=Atom, atom2=Atom,
-                       bond=Bond, groupBond=GroupBond, atoms=list)
+                       bond=Bond, atoms=list, zBoundary=float)
+                       # groupBond=GroupBond, 
         self._fingerprint = None
+        # Code below should be placed in rmgpy.molecule ConnectTheDots
         atoms = self.vertices
+        
+        # Ensure there are coordinates to work with
+        for atom in atoms:
+            assert atom.coords != None
+        
+        # If there are any bonds, remove them
         for atom1 in atoms:
             for bond in self.getBonds(atom1):
                 self.removeEdge(bond)
+        
         for i, atom1 in enumerate(atoms):
             for atom2 in atoms[i+1:]:
-                criticalDistance = atom1.radius + atom2.radius + 0.2
-                if distanceSquared(atom1,atom2) < (criticalDistance * criticalDistance):
-                    groupBond = GroupBond(atom1, atom2, ['S','D','T','B'])
+                # Set upper limit for bond distance
+                criticalDistance = (atom1.element.covRadius + atom2.element.covRadius + 0.45)**2
+                
+                # First atom that is more than 4.0 Anstroms away in the z-axis, break the loop
+                # Atoms are sorted along the z-axis, so all following atoms should be even further
+                zBoundary = (atom1.coords[2] - atom2.coords[2])**2
+                if zBoundary > 16.0:
+                    break
+                
+                distanceSquared = sum((atom1.coords - atom2.coords)**2)
+                
+                if distanceSquared > criticalDistance or distanceSquared < 0.40:
+                    continue
+                else:
+                    # groupBond = GroupBond(atom1, atom2, ['S','D','T','B'])
+                    bond = Bond(atom1, atom2, 'S')
                     self.addBond(bond)
         self.updateAtomTypes()
 
@@ -1196,8 +1218,8 @@ class Molecule(Graph):
         if self.getNetCharge() != 0:
             raise ValueError('Non-neutral molecule encountered. Currently, RMG does not support ion chemistry.\n {0}'.format(adjlist))
         return self
-        
-    def fromXYZ(self, atomicNums, coordinates):
+
+    def toCML(self):
         """
         Create an RMG molecule from a list of coordinates and a corresponding
         list of atomic numbers. These are typically received from CCLib and the
