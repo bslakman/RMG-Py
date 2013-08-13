@@ -177,8 +177,6 @@ cdef class Molecule(Graph):
 
     cpdef fromAdjacencyList(self, str adjlist)
     
-    cpdef fromXYZ(self, numpy.ndarray atomicNums, numpy.ndarray coordinates)
-
     cpdef str toCML(self)
 
     cpdef str toInChI(self)
