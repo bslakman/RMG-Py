@@ -7,6 +7,7 @@ from subprocess import Popen, PIPE
 import re
 
 from rmgpy.molecule import Group, Molecule
+from rmgpy.reaction import Reaction
 from qmdata import CCLibData
 from molecule import QMMolecule
 from reaction import QMReaction
@@ -518,21 +519,16 @@ class GaussianTS(QMReaction, Gaussian):
             # Convert the IRC geometries into RMG molecules
             # We don't know which is reactant or product, so take the two at the end of the
             # paths and compare to the reactants and products
-            mol1 = cclib.bridge.makeopenbabel(atomcoords[pth1End], atomnos)
-            mol1 = Molecule().fromOBMol(mol1)
-            mol2 = cclib.bridge.makeopenbabel(atomcoords[-1], atomnos)
-            mol2 = Molecule().fromOBMol(mol2)
+            mol1 = Molecule()
+            mol1.fromXYZ(atomnos, atomcoords[pth1End])
+            mol2 = Molecule()
+            mol2.fromXYZ(atomnos, atomcoords[-1])
             
-            # mol1 = Molecule()
-            # mol1.fromXYZ(atomnos, atomcoords[pth1End])
-            # mol2 = Molecule()
-            # mol2.fromXYZ(atomnos, atomcoords[-1])
-            
-            targetReaction = rmgpy.reaction.Reaction(
+            targetReaction = Reaction(
                                     reactants = [reactant.toSingleBonds() for reactant in self.reaction.reactants],
                                     products = [product.toSingleBonds() for product in self.reaction.products],
                                     )
-            testReaction = rmgpy.reaction.Reaction(
+            testReaction = Reaction(
                                     reactants = mol1.split(),
                                     products = mol2.split(),                     
                                     )
@@ -542,18 +538,6 @@ class GaussianTS(QMReaction, Gaussian):
             else:
                 logging.warning("Didn't make expected reaction")
                 return False
-            
-            # rInChI = sorted([x.toInChI() for x in self.reaction.reactants])
-            # pInChI = sorted([x.toInChI() for x in self.reaction.products])
-            # m1InChI = sorted([x.toInChI() for x in mol1.split()])
-            # m2InChI = sorted([x.toInChI() for x in mol2.split()])
-            # 
-            # if rInChI == m1InChI and pInChI == m2InChI:
-            #     return True
-            # elif rInChI == m2InChI and pInChI == m1InChI:
-            #     return True
-            # else:
-            #     return True
     
     def parseTS(self, labels):
     
