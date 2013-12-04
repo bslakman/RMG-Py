@@ -2,13 +2,18 @@ import os
 import re
 import external.cclib as cclib
 import logging
-from subprocess import Popen
+import time
+from subprocess import Popen, PIPE
 import distutils.spawn
 
-from rmgpy.molecule import Molecule
+from rmgpy.molecule import Molecule# Group
+from rmgpy.reaction import Reaction
 from qmdata import CCLibData
 from molecule import QMMolecule
 from reaction import QMReaction
+from rmgpy.data.base import Entry
+from rmgpy.data.kinetics import saveEntry
+from rmgpy.data.kinetics.transitionstates import DistanceData
 
 
 class Mopac:
@@ -70,9 +75,58 @@ class Mopac:
     scriptAttempts = len(keywordsTop)
     maxAttempts = 2 * scriptAttempts
     
-    failureKeys = ['IMAGINARY FREQUENCIES', 'EXCESS NUMBER OF OPTIMIZATION CYCLES', 'NOT ENOUGH TIME FOR ANOTHER CYCLE']
+        return self.verifyOutputFile()
+        
+    def parse(self):
+        """
+        Parses the results of the Mopac calculation, and returns a CCLibData object.
+        """
+        parser = cclib.parser.Mopac(self.outputFilePath)
+        parser.logger.setLevel(logging.ERROR) #cf. http://cclib.sourceforge.net/wiki/index.php/Using_cclib#Additional_information
+        cclibData = parser.parse()
+        radicalNumber = sum([i.radicalElectrons for i in self.molecule.atoms])
+        qmData = CCLibData(cclibData, radicalNumber+1)
+        return qmData
+
+class MopacMol(QMMolecule, Mopac):
+    """
+    A base Class for calculations of molecules using MOPAC. 
     
-    def writeInputFile(self, attempt, top_keys, bottom_keys, polar_keys):
+    Inherits from both :class:`QMMolecule` and :class:`Mopac`.
+    """
+                
+    def inputFileKeywords(self, attempt):
+        """
+        Return the top, bottom, and polar keywords.
+        """
+        raise NotImplementedError("Should be defined by subclass, eg. MopacMolPM3")
+        
+    def writeInputFile(self, attempt):
+        """
+        Using the :class:`Geometry` object, write the input file
+        for the `attmept`th attempt.
+        """
+        
+        obConversion = openbabel.OBConversion()
+        obConversion.SetInAndOutFormats("mol", "mop")
+        mol = openbabel.OBMol()
+    
+        obConversion.ReadFile(mol, self.getMolFilePathForCalculation(attempt) )
+        
+        mol.SetTitle(self.geometry.uniqueIDlong)
+        obConversion.SetOptions('k', openbabel.OBConversion.OUTOPTIONS)
+        input_string = obConversion.WriteString(mol)
+        top_keys, bottom_keys, polar_keys = self.inputFileKeywords(attempt)
+        with open(self.inputFilePath, 'w') as mopacFile:
+            mopacFile.write(top_keys)
+            mopacFile.write(input_string)
+            mopacFile.write('\n')
+            mopacFile.write(bottom_keys)
+            if self.usePolar:
+                mopacFile.write('\n\n\n')
+                mopacFile.write(polar_keys)
+    
+    def verifyOutputFile(self):
         """
         Check's that an output file exists and was successful.
         
@@ -80,19 +134,12 @@ class Mopac:
         given (augmented) InChI Key.
         """
         
-        obConversion = openbabel.OBConversion()
-        obConversion.SetInAndOutFormats("mol", "mop")
-        mol = openbabel.OBMol()
-    
-        if attempt <= scriptAttempts: #use UFF-refined coordinates
-            obConversion.ReadFile(mol, self.geometry.getRefinedMolFilePath() )
-        else:
-            obConversion.ReadFile(mol, self.geometry.getCrudeMolFilePath() )
-    
-        mol.SetTitle(self.geometry.uniqueID) 
-        obConversion.SetOptions('k', openbabel.OBConversion.OUTOPTIONS)
-    
-        input_string = obConversion.WriteString(mol)
+        if not os.path.exists(self.outputFilePath):
+            logging.info("Output file {0} does not exist.".format(self.outputFilePath))
+            return False
+        
+        InChIMatch=False #flag (1 or 0) indicating whether the InChI in the file matches InChIaug this can only be 1 if InChIFound is also 1
+        InChIFound=False #flag (1 or 0) indicating whether an InChI was found in the log file
         
         with open(inputFilePath, 'w') as mopacFile:
             mopacFile.write(top_keys)
@@ -188,69 +235,7 @@ class Mopac:
         
         #InChIs do not match (most likely due to limited name length mirrored in log file (240 characters), but possibly due to a collision)
         return self.checkForInChiKeyCollision(logFileInChI) # Not yet implemented!
-    
-    def getParser(self, outputFile):
-        """
-        Returns the appropriate cclib parser.
-        """
-        return cclib.parser.Mopac(outputFile)
-
-class MopacMol(QMMolecule, Mopac):
-    """
-    A base Class for calculations of molecules using MOPAC. 
-    
-    Inherits from both :class:`QMMolecule` and :class:`Mopac`.
-    """
-
-    #: Keywords that will be added at the top and bottom of the qm input file
-    keywords = [
-                {'top':"precise nosym", 'bottom':"oldgeo thermo nosym precise "},
-                {'top':"precise nosym gnorm=0.0 nonr", 'bottom':"oldgeo thermo nosym precise "},
-                {'top':"precise nosym gnorm=0.0", 'bottom':"oldgeo thermo nosym precise "},
-                {'top':"precise nosym gnorm=0.0 bfgs", 'bottom':"oldgeo thermo nosym precise "},
-                {'top':"precise nosym recalc=10 dmax=0.10 nonr cycles=2000 t=2000", 'bottom':"oldgeo thermo nosym precise "},
-                ]
-
-    def writeInputFile(self, attempt):
-        """
-        Using the :class:`Geometry` object, write the input file
-        for the `attempt`.
-        """
-        
-        molfile = self.getMolFilePathForCalculation(attempt) 
-        atomline = re.compile('\s*([\- ][0-9.]+)\s+([\- ][0-9.]+)+\s+([\- ][0-9.]+)\s+([A-Za-z]+)')
-        
-        output = [ self.geometry.uniqueIDlong, '' ]
- 
-        atomCount = 0
-        with open(molfile) as molinput:
-            for line in molinput:
-                match = atomline.match(line)
-                if match:
-                    output.append("{0:4s} {1} 1 {2} 1 {3} 1".format(match.group(4), match.group(1), match.group(2), match.group(3)))
-                    atomCount += 1
-        assert atomCount == len(self.molecule.atoms)
-    
-        output.append('')
-        input_string = '\n'.join(output)
-        
-        top_keys, bottom_keys, polar_keys = self.inputFileKeywords(attempt)
-        with open(self.inputFilePath, 'w') as mopacFile:
-            mopacFile.write(top_keys)
-            mopacFile.write('\n')
-            mopacFile.write(input_string)
-            mopacFile.write('\n')
-            mopacFile.write(bottom_keys)
-            if self.usePolar:
-                mopacFile.write('\n\n\n')
-                mopacFile.write(polar_keys)
-                
-    def inputFileKeywords(self, attempt):
-        """
-        Return the top, bottom, and polar keywords.
-        """
-        raise NotImplementedError("Should be defined by subclass, eg. MopacMolPM3")
-        
+            
     def generateQMData(self):
         """
         Calculate the QM data and return a QMData object, or None if it fails.
@@ -343,20 +328,298 @@ class MopacTS(QMReaction, Mopac):
     keywordsTop[3] = "ts ddmin=0.0001"
     keywordsTop[4] = "ts recalc=5 ddmin=0.0001"
 
-class MopacMolPM6(MopacMolPMn):
-    """
-    Mopac PM6 calculations for molecules
-    
-    This is a class of its own in case you wish to do anything differently,
-    but for now it's the same as all the MOPAC PMn calculations, only pm6
-    """
-    pm_method = 'pm6'
+    "Keywords that will be added at the bottom of the qm input file"
+    keywordsBottom = {}
+    keywordsBottom[1] = "oldgeo force"
+    keywordsBottom[2] = "oldgeo force esp"
+    keywordsBottom[3] = "oldgeo force vectors"
+    keywordsBottom[4] = "oldgeo force vectors esp"
 
-class MopacMolPM7(MopacMolPMn):
-    """
-    Mopac PM7 calculations for molecules
+    scriptAttempts = len(keywordsTop)
+
+    failureKeys = ['GRADIENT IS TOO LARGE', 
+                'EXCESS NUMBER OF OPTIMIZATION CYCLES', 
+                'NOT ENOUGH TIME FOR ANOTHER CYCLE',
+                '6 IMAGINARY FREQUENCIES',
+                '5 IMAGINARY FREQUENCIES',
+                '4 IMAGINARY FREQUENCIES',
+                '3 IMAGINARY FREQUENCIES',
+                '2 IMAGINARY FREQUENCIES'
+                ]
     
-    This is a class of its own in case you wish to do anything differently,
-    but for now it's the same as all the MOPAC PMn calculations, only pm7
-    """
-    pm_method = 'pm7'
+    def runIRC(self):
+        self.testReady()
+        # submits the input file to mopac
+        process = Popen([self.executablePath, self.inputFilePath])
+        process.communicate()# necessary to wait for executable termination!
+    
+        return self.verifyIRCOutputFile()
+    
+    def writeInputFile(self, attempt):
+        """
+        Using the :class:`Geometry` object, write the input file
+        for the `attmept`th attempt.
+        """
+        
+        obConversion = openbabel.OBConversion()
+        obConversion.SetInAndOutFormats("mol", "mop")
+        mol = openbabel.OBMol()
+    
+        obConversion.ReadFile(mol, self.geometry.getRefinedMolFilePath() )
+        
+        mol.SetTitle(self.uniqueID)
+        obConversion.SetOptions('k', openbabel.OBConversion.OUTOPTIONS)
+        input_string = obConversion.WriteString(mol)
+        top_keys, bottom_keys, polar_keys = self.inputFileKeywords(attempt, 2)
+        with open(self.inputFilePath, 'w') as mopacFile:
+            mopacFile.write(top_keys)
+            mopacFile.write(input_string)
+            mopacFile.write('\n')
+            mopacFile.write(bottom_keys)
+            if self.usePolar:
+                mopacFile.write('\n\n\n')
+                mopacFile.write(polar_keys)
+                
+    def writeIRCFile(self):
+        obConversion = openbabel.OBConversion()
+        obConversion.SetInAndOutFormats("mol", "mop")
+        parseOutput = cclib.parser.Mopac(self.outputFilePath.split('IRC')[0] + '.out')
+        parseOutput = parseOutput.parse()
+        reload(openbabel)
+        mol = cclib.bridge.makeopenbabel(parseOutput.atomcoords[0], parseOutput.atomnos)
+        mol.SetTitle(self.geometry.uniqueIDlong)
+        obConversion.SetOptions('k', openbabel.OBConversion.OUTOPTIONS)
+        input_string = obConversion.WriteString(mol)
+    
+        top_keys = 'irc=1*'
+        with open(self.inputFilePath, 'w') as mopacFile:
+            mopacFile.write(top_keys)
+            mopacFile.write(input_string)
+            mopacFile.write('\n')
+    
+    def verifyOutputFile(self):
+        """
+        Check's that an output file exists and was successful.
+        
+        Returns a boolean flag that states whether a successful MOPAC simulation already exists for the molecule with the 
+        given (augmented) InChI Key.
+        """
+        
+        if not os.path.exists(self.outputFilePath):
+            logging.info("Output file {0} does not exist.".format(self.outputFilePath))
+            return False, False
+        
+        # Initialize dictionary with "False"s 
+        successKeysFound = dict([(key, False) for key in self.successKeys])
+        
+        with open(self.outputFilePath) as outputFile:
+            for line in outputFile:
+                line = line.strip()
+                
+                for element in self.failureKeys: #search for failure keywords
+                    if element in line:
+                        logging.error("MOPAC output file contains the following error: {0}".format(element) )
+                        return False, False
+                    
+                for element in self.successKeys: #search for success keywords
+                    if element in line:
+                        successKeysFound[element] = True
+               
+        # Check that ALL 'success' keywords were found in the file.
+        if not successKeysFound['MOPAC DONE']:
+            logging.error('Not all of the required keywords for success were found in the output file!')
+            return False, False
+        else:
+            logging.info("Successful MOPAC quantum result found in {0}".format(self.outputFilePath))
+            return True, False
+        
+        #InChIs do not match (most likely due to limited name length mirrored in log file (240 characters), but possibly due to a collision)
+        return self.checkForInChiKeyCollision(logFileInChI) # Not yet implemented!
+    
+    def convertMol(self, geomLines):
+        atomcoords = []
+        atomnos = []
+        for line in geomLines:
+            atType, x, y, z = line.split()
+            if atType == 'H':
+                atNum = 1
+            elif atType == 'C':
+                atNum = 6
+            elif atType == 'O':
+                atNum = 8
+            coords = [float(x),float(y),float(z)]
+            atomnos.append(atNum)
+            atomcoords.append(coords)
+        atomnos = numpy.array(atomnos, dtype=int)
+        atomcoords = numpy.array(atomcoords)
+        reload(openbabel)
+        mol = cclib.bridge.makeopenbabel(atomcoords, atomnos) 
+    
+        return Molecule().fromOBMol(mol)
+    
+    def verifyIRCOutputFile(self):
+        """
+        Check's that an output file exists and was successful.
+        
+        Returns a boolean flag that states whether a successful MOPAC simulation already exists for the molecule with the 
+        given (augmented) InChI Key.
+        """
+        
+        if not os.path.exists(self.outputFilePath):
+            logging.info("Output file {0} does not exist.".format(self.outputFilePath))
+            return False
+        
+        # Initialize dictionary with "False"s 
+        successKeysFound = dict([(key, False) for key in self.successKeys])
+        
+        with open(self.outputFilePath) as outputFile:
+            for line in outputFile:
+                line = line.strip()
+                
+                for element in self.failureKeys: #search for failure keywords
+                    if element in line:
+                        logging.error("MOPAC output file contains the following error: {0}".format(element) )
+                        return False
+                    
+                for element in self.successKeys: #search for success keywords
+                    if element in line:
+                        successKeysFound[element] = True
+        
+        if not successKeysFound['MOPAC DONE']:
+            logging.error('Not all of the required keywords for success were found in the IRC output file!')
+            return False
+        
+        with open(self.outputFilePath.split('.')[0] + '.xyz') as geomFile:
+            geomFile.pop(0)
+            geomFile.pop(0)
+            geom1 = []
+            for line in geomFile:
+                if not line.startswith('  reversed'):
+                    geom1.append(line)
+                else:
+                    break
+            geom1.pop()
+            
+            geom2 = []
+            for line in reversed(geomFile):
+                if not line.startswith(' DRC'):
+                    geom2.append(line)
+                else:
+                    break
+            geom2.pop()
+        
+        mol1 = self.convertMol(geom1)
+        mol2 = self.convertMol(geom2)
+        
+        targetReaction = Reaction(
+                                reactants = [reactant.toSingleBonds() for reactant in self.reaction.reactants],
+                                products = [product.toSingleBonds() for product in self.reaction.products],
+                                )
+        testReaction = Reaction(
+                                reactants = mol1.split(),
+                                products = mol2.split(),                     
+                                )
+                                
+        if targetReaction.isIsomorphic(testReaction):
+            return True
+        else:
+            return False
+    
+    def parseTS(self, labels):
+    
+        tsParse = cclib.parser.Mopac(os.path.join(self.file_store_path, self.uniqueID + '.log'))
+        tsParse = tsParse.parse()
+    
+        atom1 = openbabel.OBAtom()
+        atom2 = openbabel.OBAtom()
+        atom3 = openbabel.OBAtom()
+    
+        atom1.SetAtomicNum(int(tsParse.atomnos[labels[0]]))
+        atom2.SetAtomicNum(int(tsParse.atomnos[labels[1]]))
+        atom3.SetAtomicNum(int(tsParse.atomnos[labels[2]]))
+    
+        atom1coords = tsParse.atomcoords[-1][labels[0]].tolist()
+        atom2coords = tsParse.atomcoords[-1][labels[1]].tolist()
+        atom3coords = tsParse.atomcoords[-1][labels[2]].tolist()
+    
+        atom1.SetVector(*atom1coords)
+        atom2.SetVector(*atom2coords)
+        atom3.SetVector(*atom3coords)
+        
+        # from rmgpy.molecule.element import getElement
+        # at1 = getElement(atom1.GetAtomicNum()).symbol
+        # at2 = getElement(atom2.GetAtomicNum()).symbol
+        # at3 = getElement(atom3.GetAtomicNum()).symbol
+    
+        atomDist = [str(atom1.GetDistance(atom2)), str(atom2.GetDistance(atom3)), str(atom1.GetDistance(atom3))]
+    
+        return atomDist
+    
+    def writeRxnOutputFile(self, labels):
+        
+        product = self.reaction.products[0].merge(self.reaction.products[1])
+        star3 = product.getLabeledAtom('*1').sortingLabel
+        star1 = product.getLabeledAtom('*3').sortingLabel
+        product.atoms[star1].label = '*1'
+        product.atoms[star3].label = '*3'
+        
+        atomDist = self.parseTS(labels)
+        
+        distances = {'d12':float(atomDist[0]), 'd23':float(atomDist[1]), 'd13':float(atomDist[2])}
+        user = "Pierre Bhoorasingh <bhoorasingh.p@husky.neu.edu>"
+        description = "Found via group estimation strategy using automatic transition state generator"
+        entry = Entry(
+            index = 1,
+            item = self.reaction,
+            data = DistanceData(distances=distances, method='B3LYP/6-31+G(d,p)'),
+            shortDesc = "B3LYP/6-31+G(d,p) calculation via group estimated TS generator.",
+            history = [(time.asctime(), user, 'action', description)]
+        )
+        
+        outputDataFile = os.path.join(self.file_store_path, self.uniqueID + '.data')
+        with open(outputDataFile, 'w') as parseFile:
+            saveEntry(parseFile, entry)
+    
+class MopacTSPM3(MopacTS):
+    def inputFileKeywords(self, attempt, multiplicity):
+        """
+        Inherits the writeInputFile methods from mopac.py
+        """
+        multiplicity_keys = self.multiplicityKeywords[multiplicity]
+
+        top_keys = "pm3 {0} {1}".format(
+                multiplicity_keys,
+                self.keywordsTop[attempt],
+                )
+        bottom_keys = "{0} pm3 {1}".format(
+                self.keywordsBottom[attempt],
+                multiplicity_keys,
+                )
+        polar_keys = "oldgeo {0} nosym precise pm3 {1}".format(
+                'polar' if multiplicity == 1 else 'static',
+                multiplicity_keys,
+                )
+
+        return top_keys, bottom_keys, polar_keys
+
+class MopacTSPM7(MopacTS):
+    def inputFileKeywords(self, attempt, multiplicity):
+        """
+        Inherits the writeInputFile methods from mopac.py
+        """
+        multiplicity_keys = self.multiplicityKeywords[multiplicity]
+
+        top_keys = "pm7 {0} {1}".format(
+                multiplicity_keys,
+                self.keywordsTop[attempt],
+                )
+        bottom_keys = "{0} pm7 {1}".format(
+                self.keywordsBottom[attempt],
+                multiplicity_keys,
+                )
+        polar_keys = "oldgeo {0} nosym precise pm7 {1}".format(
+                'polar' if multiplicity == 1 else 'static',
+                multiplicity_keys,
+                )
+
+        return top_keys, bottom_keys, polar_keys
