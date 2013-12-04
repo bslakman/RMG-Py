@@ -114,26 +114,8 @@ class Geometry:
         """
         return self.molecule.toRDKitMol(removeHs=False, returnMapping=True)
 
-        # Add the bonds
-        for atom1 in self.molecule.vertices:
-            for atom2, bond in atom1.edges.items():
-                index1 = rdAtomIdx[atom1]
-                index2 = rdAtomIdx[atom2]
-                if index1 > index2:
-                    # Check the RMG bond order and add the appropriate rdkit bond.
-                    if bond.order == 'S':
-                        rdBond = AllChem.rdchem.BondType.SINGLE
-                    elif bond.order == 'D':
-                        rdBond = AllChem.rdchem.BondType.DOUBLE
-                    elif bond.order == 'T':
-                        rdBond = AllChem.rdchem.BondType.TRIPLE
-                    elif bond.order == 'B':
-                        rdBond = AllChem.rdchem.BondType.AROMATIC
-                    else:
-                        logging.error('Unknown bond order')
-                    rdmol.AddBond(index1, index2, rdBond)
 
-    def rd_embed(self, rdmol, numConfAttempts):
+    def rd_embed(self, rdmol, numConfAttempts, bm=None, match=None):
         """
         Embed the RDKit molecule and create the crude molecule file.
         """
@@ -142,9 +124,10 @@ class Geometry:
             crude = Chem.Mol(rdmol.ToBinary())
             rdmol, minEid = self.optimize(rdmol)
         else:
-            # # For the double-ended method I had to comment out the changes. (lines between #########)
-            # # Need to work out a stable way to keep this to accomodate both methods
-            #########
+            """
+            Embed the molecule according to the bounds matrix. Built to handle possible failures
+            of some of the embedding attempts.
+            """
             rdmol.RemoveAllConformers()
             for i in range(0,numConfAttempts):
                 try:
@@ -152,28 +135,20 @@ class Geometry:
                     break
                 except ValueError:
                     print("RDKit failed to embed on attemt {0} of {1}".format(i+1, numConfAttempts))
-                    # What do I do next!!!!! what if they all fail?
+                    # What to do next (what if they all fail?) !!!!!
                 except RuntimeError:
                     raise RDKitFailedError()
             else:
                 print("RDKit failed all attempts to embed")
                 return None, None
-            #########
-            """
-            Embed the molecule according to the bounds matrix. Built to handle possible failures
-            of some of the embedding attempts.
-            """
-            #########
-            # while True:
-            #########
+                
             """
             RDKit currently embeds the conformers and sets the id as 0, so even though multiple
             conformers have been generated, only 1 can be called. Below the id's are resolved.
             """
-            #########
             for i in range(len(rdmol.GetConformers())):
                 rdmol.GetConformers()[i].SetId(i)
-            #########
+            
             crude = Chem.Mol(rdmol.ToBinary())
             rdmol, minEid = self.optimize(rdmol, boundsMatrix=bm, atomMatch=match)
         
