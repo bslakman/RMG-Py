@@ -107,18 +107,27 @@ class MopacMol(QMMolecule, Mopac):
         for the `attmept`th attempt.
         """
         
-        obConversion = openbabel.OBConversion()
-        obConversion.SetInAndOutFormats("mol", "mop")
-        mol = openbabel.OBMol()
-    
-        obConversion.ReadFile(mol, self.getMolFilePathForCalculation(attempt) )
+        molfile = self.getMolFilePathForCalculation(attempt) 
+        atomline = re.compile('\s*([\- ][0-9.]+)\s+([\- ][0-9.]+)+\s+([\- ][0-9.]+)\s+([A-Za-z]+)')
         
-        mol.SetTitle(self.geometry.uniqueIDlong)
-        obConversion.SetOptions('k', openbabel.OBConversion.OUTOPTIONS)
-        input_string = obConversion.WriteString(mol)
+        output = [ self.geometry.uniqueIDlong, '' ]
+    
+        atomCount = 0
+        with open(molfile) as molinput:
+            for line in molinput:
+                match = atomline.match(line)
+                if match:
+                    output.append("{0:4s} {1} 1 {2} 1 {3} 1".format(match.group(4), match.group(1), match.group(2), match.group(3)))
+                    atomCount += 1
+        assert atomCount == len(self.molecule.atoms)
+    
+        output.append('')
+        input_string = '\n'.join(output)
+        
         top_keys, bottom_keys, polar_keys = self.inputFileKeywords(attempt)
         with open(self.inputFilePath, 'w') as mopacFile:
             mopacFile.write(top_keys)
+            mopacFile.write('\n')
             mopacFile.write(input_string)
             mopacFile.write('\n')
             mopacFile.write(bottom_keys)
@@ -221,21 +230,17 @@ class MopacMol(QMMolecule, Mopac):
             #InChIs do not match (most likely due to limited name length mirrored in log file (240 characters), but possibly due to a collision)
             return self.checkForInChiKeyCollision(logFileInChI) # Not yet implemented!
 
-        # Compare the optimized geometry to the original molecule
-        qmData = self.parse()
-        cclibMol = Molecule()
-        cclibMol.fromXYZ(qmData.atomicNumbers, qmData.atomCoords.value)
-        testMol = self.molecule.toSingleBonds()
-        if not cclibMol.isIsomorphic(testMol):
-            logging.info("Incorrect connectivity for optimized geometry in file {0}".format(self.outputFilePath))
-            return False
+    def parse(self):
+        """
+        Parses the results of the Mopac calculation, and returns a CCLibData object.
+        """
+        parser = cclib.parser.Mopac(self.outputFilePath)
+        parser.logger.setLevel(logging.ERROR) #cf. http://cclib.sourceforge.net/wiki/index.php/Using_cclib#Additional_information
+        cclibData = parser.parse()
+        radicalNumber = sum([i.radicalElectrons for i in self.molecule.atoms])
+        qmData = CCLibData(cclibData, radicalNumber+1)
+        return qmData
 
-        logging.info("Successful {1} quantum result in {0}".format(self.outputFilePath, self.__class__.__name__))
-        return True
-        
-        #InChIs do not match (most likely due to limited name length mirrored in log file (240 characters), but possibly due to a collision)
-        return self.checkForInChiKeyCollision(logFileInChI) # Not yet implemented!
-            
     def generateQMData(self):
         """
         Calculate the QM data and return a QMData object, or None if it fails.
@@ -308,44 +313,39 @@ class MopacMolPMn(MopacMol):
 
 #TS
 class MopacTS(QMReaction, Mopac):
-    #*****change this for TS
+    
     "Keywords for the multiplicity"
-    multiplicityKeywords = {}
-    multiplicityKeywords[1] = ''
-    multiplicityKeywords[2] = 'uhf doublet'
-    multiplicityKeywords[3] = 'uhf triplet'
-    multiplicityKeywords[4] = 'uhf quartet'
-    multiplicityKeywords[5] = 'uhf quintet'
-    multiplicityKeywords[6] = 'uhf sextet'
-    multiplicityKeywords[7] = 'uhf septet'
-    multiplicityKeywords[8] = 'uhf octet'
-    multiplicityKeywords[9] = 'uhf nonet'
+    multiplicityKeywords = {
+                             1: '',
+                             2: 'uhf doublet',
+                             3: 'uhf triplet',
+                             4: 'uhf quartet',
+                             5: 'uhf quintet',
+                             6: 'uhf sextet',
+                             7: 'uhf septet',
+                             8: 'uhf octet',
+                             9: 'uhf nonet',
+                            }
 
     "Keywords that will be added at the top of the qm input file"
-    keywordsTop = {}
-    keywordsTop[1] = "ts"
-    keywordsTop[2] = "ts recalc=5"
-    keywordsTop[3] = "ts ddmin=0.0001"
-    keywordsTop[4] = "ts recalc=5 ddmin=0.0001"
-
-    "Keywords that will be added at the bottom of the qm input file"
-    keywordsBottom = {}
-    keywordsBottom[1] = "oldgeo force"
-    keywordsBottom[2] = "oldgeo force esp"
-    keywordsBottom[3] = "oldgeo force vectors"
-    keywordsBottom[4] = "oldgeo force vectors esp"
-
-    scriptAttempts = len(keywordsTop)
-
-    failureKeys = ['GRADIENT IS TOO LARGE', 
-                'EXCESS NUMBER OF OPTIMIZATION CYCLES', 
-                'NOT ENOUGH TIME FOR ANOTHER CYCLE',
-                '6 IMAGINARY FREQUENCIES',
-                '5 IMAGINARY FREQUENCIES',
-                '4 IMAGINARY FREQUENCIES',
-                '3 IMAGINARY FREQUENCIES',
-                '2 IMAGINARY FREQUENCIES'
+    keywords = [
+                {'top':"ts", 'bottom':"oldgeo force "},
+                {'top':"ts", 'bottom':"oldgeo force esp "},
+                {'top':"ts", 'bottom':"oldgeo force vectors "},
+                {'top':"ts", 'bottom':"oldgeo force vectors esp "},
                 ]
+                
+    scriptAttempts = len(keywords)
+
+    failureKeys = [ 'GRADIENT IS TOO LARGE', 
+                    'EXCESS NUMBER OF OPTIMIZATION CYCLES', 
+                    'NOT ENOUGH TIME FOR ANOTHER CYCLE',
+                    '6 IMAGINARY FREQUENCIES',
+                    '5 IMAGINARY FREQUENCIES',
+                    '4 IMAGINARY FREQUENCIES',
+                    '3 IMAGINARY FREQUENCIES',
+                    '2 IMAGINARY FREQUENCIES'
+                    ]
     
     def runIRC(self):
         self.testReady()
@@ -360,34 +360,42 @@ class MopacTS(QMReaction, Mopac):
         Using the :class:`Geometry` object, write the input file
         for the `attmept`th attempt.
         """
+        import ipdb; ipdb.set_trace()
+        molfile = self.getMolFilePathForCalculation(attempt) 
+        atomline = re.compile('\s*([\- ][0-9.]+)\s+([\- ][0-9.]+)+\s+([\- ][0-9.]+)\s+([A-Za-z]+)')
         
-        obConversion = openbabel.OBConversion()
-        obConversion.SetInAndOutFormats("mol", "mop")
-        mol = openbabel.OBMol()
-    
-        obConversion.ReadFile(mol, self.geometry.getRefinedMolFilePath() )
+        output = [ self.geometry.uniqueID, '' ]
         
-        mol.SetTitle(self.uniqueID)
-        obConversion.SetOptions('k', openbabel.OBConversion.OUTOPTIONS)
-        input_string = obConversion.WriteString(mol)
-        top_keys, bottom_keys, polar_keys = self.inputFileKeywords(attempt, 2)
+        atomCount = 0
+        with open(molfile) as molinput:
+            for line in molinput:
+                match = atomline.match(line)
+                if match:
+                    output.append("{0:4s} {1} 1 {2} 1 {3} 1".format(match.group(4), match.group(1), match.group(2), match.group(3)))
+                    atomCount += 1
+        assert atomCount == len(self.molecule.atoms)
+        
+        output.append('')
+        input_string = '\n'.join(output)
+        
+        top_keys, bottom_keys, polar_keys = self.inputFileKeywords(attempt)
         with open(self.inputFilePath, 'w') as mopacFile:
             mopacFile.write(top_keys)
+            mopacFile.write('\n')
             mopacFile.write(input_string)
             mopacFile.write('\n')
             mopacFile.write(bottom_keys)
             if self.usePolar:
                 mopacFile.write('\n\n\n')
                 mopacFile.write(polar_keys)
-                
+                        
     def writeIRCFile(self):
-        obConversion = openbabel.OBConversion()
-        obConversion.SetInAndOutFormats("mol", "mop")
         parseOutput = cclib.parser.Mopac(self.outputFilePath.split('IRC')[0] + '.out')
         parseOutput = parseOutput.parse()
-        reload(openbabel)
-        mol = cclib.bridge.makeopenbabel(parseOutput.atomcoords[0], parseOutput.atomnos)
-        mol.SetTitle(self.geometry.uniqueIDlong)
+        mol = Molecule().fromXYZ(parseOutput.atomcoords[0], parseOutput.atomnos)
+        
+        
+        mol.SetTitle(self.geometry.uniqueID)
         obConversion.SetOptions('k', openbabel.OBConversion.OUTOPTIONS)
         input_string = obConversion.WriteString(mol)
     
