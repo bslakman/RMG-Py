@@ -228,9 +228,16 @@ class MopacMol(QMMolecule, Mopac):
             logging.error("No InChI was found in the MOPAC output file {0}".format(self.outputFilePath))
             return False
         
-        if not InChIMatch:
-            #InChIs do not match (most likely due to limited name length mirrored in log file (240 characters), but possibly due to a collision)
-            return self.checkForInChiKeyCollision(logFileInChI) # Not yet implemented!
+        if InChIMatch:
+            # Compare the optimized geometry to the original molecule
+            parser = cclib.parser.Mopac(self.outputFilePath)
+            parser.logger.setLevel(logging.ERROR) #cf. http://cclib.sourceforge.net/wiki/index.php/Using_cclib#Additional_information
+            cclibData = parser.parse()
+            cclibMol = Molecule()
+            cclibMol.fromXYZ(cclibData.atomnos, cclibData.atomcoords[-1])
+        
+        #InChIs do not match (most likely due to limited name length mirrored in log file (240 characters), but possibly due to a collision)
+        return self.checkForInChiKeyCollision(logFileInChI) # Not yet implemented!
 
     def parse(self):
         """
