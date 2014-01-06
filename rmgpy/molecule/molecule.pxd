@@ -172,6 +172,8 @@ cdef class Molecule(Graph):
     cpdef fromSMILES(self, str smilesstr, backend=?)
 
     cpdef fromAdjacencyList(self, str adjlist, bint saturateH=?)
+    
+    cpdef fromXYZ(self, numpy.ndarray atomicNums, numpy.ndarray coordinates)
 
     cpdef fromOBMol(self, obmol)
 
