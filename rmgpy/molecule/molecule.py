@@ -865,7 +865,7 @@ class Molecule(Graph):
         # Remove the hydrogen atoms from the structure
         for atom in hydrogens:
             self.removeAtom(atom)
-            
+    
     def connectTheDots(self):
         """
         Delete all bonds, and set them again based on the Atoms' coords.
@@ -875,7 +875,7 @@ class Molecule(Graph):
                        bond=Bond, atoms=list, zBoundary=float)
                        # groupBond=GroupBond, 
         self._fingerprint = None
-        # Code below should be placed in rmgpy.molecule ConnectTheDots
+        
         atoms = self.vertices
         
         # Ensure there are coordinates to work with
