@@ -208,6 +208,95 @@ class GaussianMol(QMMolecule, Gaussian):
         
         #InChIs do not match (most likely due to limited name length mirrored in log file (240 characters), but possibly due to a collision)
         return self.checkForInChiKeyCollision(logFileInChI) # Not yet implemented!
+        
+    def parse(self):
+        """
+        Parses the results of the Gaussian calculation, and returns a CCLibData object.
+        """
+        parser = cclib.parser.Gaussian(self.outputFilePath)
+        parser.logger.setLevel(logging.ERROR) #cf. http://cclib.sourceforge.net/wiki/index.php/Using_cclib#Additional_information
+        cclibData = parser.parse()
+        radicalNumber = sum([i.radicalElectrons for i in self.molecule.atoms])
+        qmData = CCLibData(cclibData, radicalNumber+1)
+        return qmData
+    
+    
+    
+class GaussianMol(QMMolecule, Gaussian):
+    """
+    A base Class for calculations of molecules using Gaussian. 
+    
+    Inherits from both :class:`QMMolecule` and :class:`Gaussian`.
+    """
+    
+    def writeInputFile(self, attempt):
+        """
+        Using the :class:`Geometry` object, write the input file
+        for the `attmept`th attempt.
+        """
+        molfile = self.getMolFilePathForCalculation(attempt) 
+        atomline = re.compile('\s*([\- ][0-9.]+\s+[\-0-9.]+\s+[\-0-9.]+)\s+([A-Za-z]+)')
+        
+        output = ['', self.geometry.uniqueIDlong, '' ]
+        output.append("{charge}   {mult}".format(charge=0, mult=(self.molecule.getRadicalCount() + 1) ))
+        
+        atomCount = 0
+        with open(molfile) as molinput:
+            for line in molinput:
+                match = atomline.match(line)
+                if match:
+                    output.append("{0:8s} {1}".format(match.group(2), match.group(1)))
+                    atomCount += 1
+        assert atomCount == len(self.molecule.atoms)
+    
+        output.append('')
+        input_string = '\n'.join(output)
+        
+        top_keys = self.inputFileKeywords(attempt)
+        with open(self.inputFilePath, 'w') as gaussianFile:
+            gaussianFile.write(top_keys)
+            gaussianFile.write('\n')
+            gaussianFile.write(input_string)
+            gaussianFile.write('\n')
+            if self.usePolar:
+                gaussianFile.write('\n\n\n')
+                gaussianFile.write(polar_keys)
+    
+    def inputFileKeywords(self, attempt):
+        """
+        Return the top keywords.
+        """
+        raise NotImplementedError("Should be defined by subclass, eg. GaussianMolPM3")
+    
+    def generateQMData(self):
+        """
+        Calculate the QM data and return a QMData object, or None if it fails.
+        """
+        for atom in self.molecule.vertices:
+            if atom.atomType.label == 'N5s' or atom.atomType.label == 'N5d' or atom.atomType.label =='N5dd' or atom.atomType.label == 'N5t' or atom.atomType.label == 'N5b':
+                return None
+                
+        if self.verifyOutputFile():
+            logging.info("Found a successful output file already; using that.")
+            source = "QM Gaussian result file found from previous run."
+        else:
+            self.createGeometry()
+            success = False
+            for attempt in range(1, self.maxAttempts+1):
+                self.writeInputFile(attempt)
+                logging.info('Trying {3} attempt {0} of {1} on molecule {2}.'.format(attempt, self.maxAttempts, self.molecule.toSMILES(), self.__class__.__name__))
+                success = self.run()
+                if success:
+                    logging.info('Attempt {0} of {1} on species {2} succeeded.'.format(attempt, self.maxAttempts, self.molecule.toAugmentedInChI()))
+                    break
+            else:
+                logging.error('QM thermo calculation failed for {0}.'.format(self.molecule.toAugmentedInChI()))
+                return None
+        result = self.parse() # parsed in cclib
+        result.source = source
+        return result # a CCLibData object
+    
+
 
 class GaussianMolPM3(GaussianMol):
 
@@ -282,6 +371,56 @@ class GaussianMolPM3(GaussianMol):
                "# pm3 opt=(verytight,gdiis,calcall,small,maxcyc=200) IOP(2/16=3) IOP(4/21=2) nosymm", # worked for troublesome ketene case: CCGKOQOJPYTBIH-UHFFFAOYAO (InChI=1/C2H2O/c1-2-3/h1H2) (could just increase number of iterations for similar keyword combination above (#6 at the time of this writing), allowing symmetry, but nosymm seemed to reduce # of iterations; I think one of nosymm or higher number of iterations would allow the similar keyword combination to converge; both are included here for robustness)
                "# pm3 opt=(verytight,gdiis,calcall,small) IOP(2/16=3) nosymm", # added for case of ZWMVZWMBTVHPBS-UHFFFAOYAEmult3 (InChI=1/C4H4O2/c1-3-5-6-4-2/h1-2H2/mult3)
                "# pm3 opt=(calcall,small,maxcyc=100) IOP(2/16=3)", # used to address troublesome FILUFGAZMJGNEN-UHFFFAOYAImult3 case (InChI=1/C5H6/c1-3-5-4-2/h3H,1H2,2H3/mult3)
+               ]
+
+    @property
+    def scriptAttempts(self):
+        "The number of attempts with different script keywords"
+        return len(self.keywords)
+
+    @property
+    def maxAttempts(self):
+        "The total number of attempts to try"
+        return 2 * len(self.keywords)
+
+    def inputFileKeywords(self, attempt):
+        """
+        Return the top keywords for attempt number `attempt`.
+
+        NB. `attempt`s begin at 1, not 0.
+        """
+        assert attempt <= self.maxAttempts
+        if attempt > self.scriptAttempts:
+            attempt -= self.scriptAttempts
+        return self.keywords[attempt-1]
+
+class GaussianMolB3LYP(GaussianMol):
+    """
+    For use with the automated transition state estimator. This will find the
+    stable species geomtries when required for TST rate calculation.
+    """
+
+    #: Keywords that will be added at the top of the qm input file
+    # removed 'gdiis' from the keywords; http://www.gaussian.com/g_tech/g_ur/d_obsolete.htm
+    keywords = [
+               "# b3lyp/6-31+g(d,p) opt=(verytight) freq IOP(2/16=3)",
+               "# b3lyp/6-31+g(d,p) opt=(verytight) freq IOP(2/16=3) IOP(4/21=2)",
+               "# b3lyp/6-31+g(d,p) opt=(verytight,calcfc,maxcyc=200) freq IOP(2/16=3) nosymm" ,
+               "# b3lyp/6-31+g(d,p) opt=(verytight,calcfc,maxcyc=200) freq=numerical IOP(2/16=3) nosymm",
+               "# b3lyp/6-31+g(d,p) opt=(verytight,small) freq IOP(2/16=3)",
+               "# b3lyp/6-31+g(d,p) opt=(verytight,nolinear,calcfc,small) freq IOP(2/16=3)",
+               "# b3lyp/6-31+g(d,p) opt=(verytight,maxcyc=200) freq=numerical IOP(2/16=3)",
+               "# b3lyp/6-31+g(d,p) opt=tight freq IOP(2/16=3)",
+               "# b3lyp/6-31+g(d,p) opt=tight freq=numerical IOP(2/16=3)",
+               "# b3lyp/6-31+g(d,p) opt=(tight,nolinear,calcfc,small,maxcyc=200) freq IOP(2/16=3)",
+               "# b3lyp/6-31+g(d,p) opt freq IOP(2/16=3)",
+               "# b3lyp/6-31+g(d,p) opt=(verytight,gdiis) freq=numerical IOP(2/16=3) IOP(4/21=200)",
+               "# b3lyp/6-31+g(d,p) opt=(calcfc,verytight,newton,notrustupdate,small,maxcyc=100,maxstep=100) freq=(numerical,step=10) IOP(2/16=3) nosymm",
+               "# b3lyp/6-31+g(d,p) opt=(tight,small,maxcyc=200,maxstep=100) freq=numerical IOP(2/16=3) nosymm",
+               "# b3lyp/6-31+g(d,p) opt=(tight,small,maxcyc=200,maxstep=100) freq=numerical IOP(2/16=3) nosymm",
+               "# b3lyp/6-31+g(d,p) opt=(verytight,gdiis,calcall,small,maxcyc=200) IOP(2/16=3) IOP(4/21=2) nosymm",
+               "# b3lyp/6-31+g(d,p) opt=(verytight,gdiis,calcall,small) IOP(2/16=3) nosymm",
+               "# b3lyp/6-31+g(d,p) opt=(calcall,small,maxcyc=100) IOP(2/16=3)",
                ]
 
     @property
@@ -677,3 +816,13 @@ class GaussianTSB3LYP(GaussianTS):
     This needs some work, to determine options that are best used. Commented out the
     methods for now.
     """
+    
+    def getQMMolecule(self, molecule):
+        """
+        The TST calculation must use the same electronic structure and basis set for the
+        reactant species as the transition state. This method will ensure this by creating
+        and returning the corresponding QMMolecule from the child class GaussianMolB3LYP.
+        """
+        
+        qmMolecule = GaussianMolB3LYP(molecule, self.settings)
+        return qmMolecule
