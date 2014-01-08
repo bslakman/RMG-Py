@@ -500,7 +500,7 @@ class GaussianTS(QMReaction, Gaussian):
             if not atom.element.symbol in atomTypes:
                 atomTypes.append(atom.element.symbol)
         
-        with open(self.inputFilePath, 'w') as gaussianFile:
+        with open(self.ircInputFilePath, 'w') as gaussianFile:
             gaussianFile.write(numProc)
             gaussianFile.write(mem)
             gaussianFile.write(chk_file)
@@ -572,7 +572,7 @@ class GaussianTS(QMReaction, Gaussian):
     def runIRC(self):
         self.testReady()
         # submits the input file to Gaussian
-        process = Popen([self.executablePath, self.inputFilePath, self.outputFilePath])
+        process = Popen([self.executablePath, self.ircInputFilePath, self.ircOutputFilePath])
         process.communicate()# necessary to wait for executable termination!
         
         return self.verifyIRCOutputFile()
@@ -635,8 +635,8 @@ class GaussianTS(QMReaction, Gaussian):
         """
         Compares IRC geometries to input geometries.
         """
-        if not os.path.exists(self.outputFilePath):
-            logging.info("Output file {0} does not exist.".format(self.outputFilePath))
+        if not os.path.exists(self.ircOutputFilePath):
+            logging.info("Output file {0} does not exist.".format(self.ircOutputFilePath))
             return False
         
         # Initialize dictionary with "False"s 
@@ -644,7 +644,7 @@ class GaussianTS(QMReaction, Gaussian):
         
         pth1 = list()
         steps = list()
-        with open(self.outputFilePath) as outputFile:
+        with open(self.ircOutputFilePath) as outputFile:
             for line in outputFile:
                 line = line.strip()
                 
@@ -679,7 +679,7 @@ class GaussianTS(QMReaction, Gaussian):
         else:
             pth1End = sum(steps[:pth1[-1]])		
             # Compare the reactants and products
-            ircParse = cclib.parser.Gaussian(self.outputFilePath)
+            ircParse = cclib.parser.Gaussian(self.ircOutputFilePath)
             ircParse = ircParse.parse()
         
             atomnos = ircParse.atomnos
