@@ -75,8 +75,6 @@ cdef class Atom(Vertex):
 ################################################################################
 
 cpdef object SMILEwriter
-
-cpdef float distanceSquared(Atom atom1, Atom atom2)
     
 cdef class Bond(Edge):
 
@@ -193,7 +191,7 @@ cdef class Molecule(Graph):
 
     cpdef str toSMILES(self)
 
-    cpdef toAdjacencyList(self, str label=?, bint removeH=?, bint removeLonePairs=?, bint oldStyle=?)
+    cpdef toAdjacencyList(self, str label=?, bint removeH=?, bint removeLonePairs=?)
 
     cpdef bint isLinear(self) except -2
 
