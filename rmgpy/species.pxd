@@ -52,7 +52,7 @@ cdef class Species:
     
     cpdef bint isIsomorphic(self, other)
     
-    cpdef fromAdjacencyList(self, adjlist)
+    cpdef fromAdjacencyList(self, str adjlist, bint saturateH=?)
     cpdef fromSMILES(self, smiles)
     
     cpdef toAdjacencyList(self)
