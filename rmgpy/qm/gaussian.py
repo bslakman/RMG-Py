@@ -49,94 +49,22 @@ class Gaussian:
    
     def run(self):
         self.testReady()
+        
+        with open(self.inputFilePath) as infile:
+            print "Running GAUSSIAN input file {0!s}:".format(self.inputFilePath)
+            for line in infile:
+                print line.rstrip()
+
         # submits the input file to Gaussian
         process = Popen([self.executablePath, self.inputFilePath, self.outputFilePath])
         process.communicate()# necessary to wait for executable termination!
-        
         return self.verifyOutputFile()
         
-    def parse(self):
-        """
-        Parses the results of the Gaussian calculation, and returns a CCLibData object.
-        """
-        parser = cclib.parser.Gaussian(self.outputFilePath)
-        parser.logger.setLevel(logging.ERROR) #cf. http://cclib.sourceforge.net/wiki/index.php/Using_cclib#Additional_information
-        cclibData = parser.parse()
-        radicalNumber = sum([i.radicalElectrons for i in self.molecule.atoms])
-        qmData = CCLibData(cclibData, radicalNumber+1)
-        return qmData
-    
-    
-    
-class GaussianMol(QMMolecule, Gaussian):
-    """
-    A base Class for calculations of molecules using Gaussian. 
-    
-    Inherits from both :class:`QMMolecule` and :class:`Gaussian`.
-    """
-    #: List of phrases to indicate success.
-    #: ALL of these must be present in a successful job.
-    successKeys = [
-                   'Normal termination of Gaussian',
-                  ]
-    
-    #: List of phrases that indicate failure
-    #: NONE of these must be present in a succesful job.
-    failureKeys = [
-                   'ERROR TERMINATION',
-                   'IMAGINARY FREQUENCIES'
-                   ]
-    
-    def writeInputFile(self, attempt):
-        """
-        Using the :class:`Geometry` object, write the input file
-        for the `attmept`th attempt.
-        """
-    
-        obConversion = openbabel.OBConversion()
-        obConversion.SetInAndOutFormats("mol", "gjf")
-        mol = openbabel.OBMol()
-    
-        obConversion.ReadFile(mol, self.getMolFilePathForCalculation(attempt) )
-    
-        mol.SetTitle(self.geometry.uniqueIDlong)
-        obConversion.SetOptions('k', openbabel.OBConversion.OUTOPTIONS)
-        input_string = obConversion.WriteString(mol)
-        top_keys = self.inputFileKeywords(attempt)
-        with open(self.inputFilePath, 'w') as gaussianFile:
-            gaussianFile.write(top_keys)
-            gaussianFile.write(input_string)
-            gaussianFile.write('\n')
-            if self.usePolar:
-                gaussianFile.write('\n\n\n')
-                gaussianFile.write(polar_keys)
-    
-    def inputFileKeywords(self, attempt):
-        """
-        Return the top keywords.
-        """
-        raise NotImplementedError("Should be defined by subclass, eg. GaussianMolPM3")
-    
-    def generateQMData(self):
-        """
-        Calculate the QM data and return a QMData object.
-        """
-        self.createGeometry()
-        if self.verifyOutputFile():
-            logging.info("Found a successful output file already; using that.")
-        else:
-            success = False
-            for attempt in range(1, self.maxAttempts+1):
-                self.writeInputFile(attempt)
-                success = self.run()
-                if success:
-                    logging.info('Attempt {0} of {1} on species {2} succeeded.'.format(attempt, self.maxAttempts, self.molecule.toAugmentedInChI()))
-                    break
-            else:
-                raise Exception('QM thermo calculation failed for {0}.'.format(self.molecule.toAugmentedInChI()))
-        result = self.parse() # parsed in cclib
-        return result
-    
+        with open(self.outputFilePath) as outfile:
+            print "Gaussian output file {0!s}:".format(self.outputFilePath)
+            for line in outfile:
+                print line.rstrip()
+
     def verifyOutputFile(self):
         """
         Check's that an output file exists and was successful.
@@ -572,7 +500,7 @@ class GaussianTS(QMReaction, Gaussian):
                         output.append("{0:8s} {1}".format(match.group(2), match.group(1)))
                         atomCount += 1
             inputFilePath = otherGeom.getFilePath(self.inputFileExtension)
-            bottom_keys = "{atom1} {atom3} F\n{atom1} {atom2} F\n".format(atom1=freezeAtoms[0] + 1, atom2=freezeAtoms[1] + 1, atom3=freezeAtoms[2] + 1)
+            bottom_keys = "{atom1} {atom2} F\n".format(atom1=freezeAtoms[0] + 1, atom2=freezeAtoms[1] + 1, atom3=freezeAtoms[2] + 1)
         else:
             molfile = self.geometry.getRefinedMolFilePath() # Get the reactant geometry
             
@@ -584,7 +512,7 @@ class GaussianTS(QMReaction, Gaussian):
                         output.append("{0:8s} {1}".format(match.group(2), match.group(1)))
                         atomCount += 1
             inputFilePath = self.inputFilePath
-            bottom_keys = "{atom1} {atom3} F\n{atom2} {atom3} F\n".format(atom1=freezeAtoms[0] + 1, atom2=freezeAtoms[1] + 1, atom3=freezeAtoms[2] + 1)
+            bottom_keys = "{atom2} {atom3} F\n".format(atom1=freezeAtoms[0] + 1, atom2=freezeAtoms[1] + 1, atom3=freezeAtoms[2] + 1)
         
         assert atomCount == len(self.geometry.molecule.atoms)
         
@@ -757,9 +685,19 @@ class GaussianTS(QMReaction, Gaussian):
     
     def runDouble(self, inputFilePath):
         self.testReady()
+        with open(inputFilePath) as infile:
+            print "Running GAUSSIAN input file {0!s}:".format(inputFilePath)
+            for line in infile:
+                print line.rstrip()
         # submits the input file to Gaussian
         process = Popen([self.executablePath, inputFilePath])
         process.communicate()# necessary to wait for executable termination!
+        
+        logFilePath = os.path.splitext(inputFilePath)[0]+self.outputFileExtension
+        with open(logFilePath) as outfile:
+            print "Gaussian output file {0!s}:".format(logFilePath)
+            for line in outfile:
+                print line.rstrip()
         
     def runIRC(self):
         self.testReady()
