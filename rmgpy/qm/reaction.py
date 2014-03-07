@@ -373,15 +373,15 @@ class QMReaction:
             rightTS = self.verifyIRCOutputFile()
             if rightTS:
                 self.writeRxnOutputFile(labels)
-                return True, rGeom, labels, notes
+                return True, self.geometry, labels, notes
             else:
                 return False, None, None, notes
 
         if self.settings.software.lower() == 'mopac':
             # all below needs to change
             print "Optimizing reactant geometry"
-            self.writeGeomInputFile(freezeAtoms=labels, otherGeom=rGeom)
-            logFilePath = self.runDouble(rGeom.getFilePath(self.inputFileExtension))
+            self.writeGeomInputFile(freezeAtoms=labels)
+            logFilePath = self.runDouble(self.inputFilePath)
             shutil.copy(logFilePath, logFilePath+'.reactant.out')
             print "Optimizing product geometry"
             self.writeGeomInputFile(freezeAtoms=labels, otherGeom=pGeom)
@@ -389,7 +389,7 @@ class QMReaction:
             shutil.copy(logFilePath, logFilePath+'.product.out')
                 
             print "Product geometry referencing reactant"
-            self.writeReferenceFile(freezeAtoms=labels, otherGeom=rGeom)#inputFilePath, molFilePathForCalc, geometry, attempt, outputFile=None)
+            self.writeReferenceFile(freezeAtoms=labels)#inputFilePath, molFilePathForCalc, geometry, attempt, outputFile=None)
             self.writeGeoRefInputFile(pGeom, freezeAtoms=labels, otherSide=True)#inputFilePath, molFilePathForCalc, refFilePath, geometry)
             logFilePath = self.runDouble(pGeom.getFilePath(self.inputFileExtension))
             shutil.copy(logFilePath, logFilePath+'.ref1.out')
@@ -410,7 +410,7 @@ class QMReaction:
                 print "Running Saddle from optimized geometries"
                 self.writeSaddleInputFile(pGeom)
                 self.runDouble(self.inputFilePath)
-                return True, rGeom, labels, notes
+                return True, self.geometry, labels, notes
                 # # Optimize the transition state using the TS protocol
                 # self.writeInputFile(1, fromQST2=True)
                 # converged, cartesian = self.run()
@@ -421,7 +421,7 @@ class QMReaction:
                 #     rightTS = self.runIRC()
                 #     if rightTS:
                 #         notes = notes + 'Correct geometry found\n'
-                #         return True, rGeom, labels, notes
+                #         return True, self.geometry, labels, notes
                 #     else:
                 #         notes = notes + 'Failure at IRC\n'
                 #         return False, None, None, notes
@@ -436,7 +436,7 @@ class QMReaction:
             print "Optimizing reactant geometry"
             self.writeGeomInputFile(freezeAtoms=labels)
             logFilePath = self.runDouble(self.inputFilePath)
-            rightReactant = self.checkGeometry(logFilePath, rGeom.molecule)
+            rightReactant = self.checkGeometry(logFilePath, self.geometry.molecule)
             shutil.copy(logFilePath, logFilePath+'.reactant.log')
             if rightReactant:
                 print "Reactant geometry success"
