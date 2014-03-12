@@ -231,8 +231,8 @@ class QMReaction:
         atomMatch = ((lbl1,),(lbl2,),(lbl3,))
         
         
-        bm1 = fixMatrix(bm1, lbl1, lbl2, lbl3, 2.7, 0.1)
-        bm2 = fixMatrix(bm2, lbl3, lbl2, lbl1, 2.7, 0.1) 
+        bm1 = fixMatrix(bm1, lbl1, lbl2, lbl3, 2.6, 0.1)
+        bm2 = fixMatrix(bm2, lbl3, lbl2, lbl1, 2.6, 0.1) 
             
         # if (reactant.atoms[lbl1].symbol == 'H' and reactant.atoms[lbl3].symbol == 'C') or (reactant.atoms[lbl1].symbol == 'C' and reactant.atoms[lbl3].symbol == 'H'):
         #     bm1 = fixMatrix(bm1, lbl1, lbl2, lbl3, 2.3, 0.1)
@@ -354,9 +354,12 @@ class QMReaction:
         atoms = len(reactant.atoms)
         distGeomAttempts = 15*(atoms-3) # number of conformers embedded from the bounds matrix
          
-
-        rGeom.rd_embed(rRDMol, distGeomAttempts, bm=rBM, match=atomMatch)
-        rRDMol = rdkit.Chem.MolFromMolFile(rGeom.getCrudeMolFilePath(), removeHs=False)
+        rdmol, minEid = self.geometry.rd_embed(rRDMol, distGeomAttempts, bm=rBM, match=atomMatch)
+        if not rdmol:
+            print "RDKit failed all attempts to embed"
+            notes = notes + "RDKit failed all attempts to embed"
+            return False, None, None, notes
+        rRDMol = rdkit.Chem.MolFromMolFile(self.geometry.getCrudeMolFilePath(), removeHs=False)
         # Make product pRDMol a copy of the reactant rRDMol geometry
         for atom in reactant.atoms:
             i = atom.sortingLabel
@@ -462,8 +465,14 @@ class QMReaction:
                 
             print "Running QST2 from optimized geometries"
             self.writeQST2InputFile(pGeom)
-            logFilePath = self.runDouble(self.inputFilePath)
+            qst2, logFilePath = self.runQST2()
             shutil.copy(logFilePath, logFilePath+'.QST2.log')
+            
+            if not qst2:
+                print "QST3 needed, see:" + self.settings.fileStore
+                notes = notes + 'QST3 needed\n'
+                return False, None, None, notes
+                
             print "Optimizing TS once"
             self.writeInputFile(1, fromQST2=True)
             converged, internalCoord = self.run()
