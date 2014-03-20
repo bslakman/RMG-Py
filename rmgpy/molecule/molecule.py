@@ -1237,8 +1237,8 @@ class Molecule(Graph):
             self.addAtom(atom)
         
         return self.connectTheDots()
-
-    def toCML(self):
+    
+    def toSingleBonds(self):
         """
         Returns a copy of the current molecule, consisting of only single bonds.
         
