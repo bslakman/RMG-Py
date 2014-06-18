@@ -230,24 +230,24 @@ class GaussianMolPM3(GaussianMol):
 
     #: Keywords that will be added at the top of the qm input files
     keywords = [
-               "#p pm3 opt=(verytight,gdiis) freq IOP(2/16=3)",
-               "#p pm3 opt=(verytight,gdiis) freq IOP(2/16=3) IOP(4/21=2)",
-               "#p pm3 opt=(verytight,calcfc,maxcyc=200) freq IOP(2/16=3) nosymm" ,
-               "#p pm3 opt=(verytight,calcfc,maxcyc=200) freq=numerical IOP(2/16=3) nosymm",
-               "#p pm3 opt=(verytight,gdiis,small) freq IOP(2/16=3)",
-               "#p pm3 opt=(verytight,nolinear,calcfc,small) freq IOP(2/16=3)",
-               "#p pm3 opt=(verytight,gdiis,maxcyc=200) freq=numerical IOP(2/16=3)",
-               "#p pm3 opt=tight freq IOP(2/16=3)",
-               "#p pm3 opt=tight freq=numerical IOP(2/16=3)",
-               "#p pm3 opt=(tight,nolinear,calcfc,small,maxcyc=200) freq IOP(2/16=3)",
-               "#p pm3 opt freq IOP(2/16=3)",
-               "#p pm3 opt=(verytight,gdiis) freq=numerical IOP(2/16=3) IOP(4/21=200)",
-               "#p pm3 opt=(calcfc,verytight,newton,notrustupdate,small,maxcyc=100,maxstep=100) freq=(numerical,step=10) IOP(2/16=3) nosymm",
-               "#p pm3 opt=(tight,gdiis,small,maxcyc=200,maxstep=100) freq=numerical IOP(2/16=3) nosymm",
-               "#p pm3 opt=(tight,gdiis,small,maxcyc=200,maxstep=100) freq=numerical IOP(2/16=3) nosymm",
-               "#p pm3 opt=(verytight,gdiis,calcall,small,maxcyc=200) IOP(2/16=3) IOP(4/21=2) nosymm",
-               "#p pm3 opt=(verytight,gdiis,calcall,small) IOP(2/16=3) nosymm",
-               "#p pm3 opt=(calcall,small,maxcyc=100) IOP(2/16=3)",
+               "#  pm3 opt=(verytight,gdiis) freq IOP(2/16=3)",
+               "#  pm3 opt=(verytight,gdiis) freq IOP(2/16=3) IOP(4/21=2)",
+               "#  pm3 opt=(verytight,calcfc,maxcyc=200) freq IOP(2/16=3) nosymm" ,
+               "#  pm3 opt=(verytight,calcfc,maxcyc=200) freq=numerical IOP(2/16=3) nosymm",
+               "#  pm3 opt=(verytight,gdiis,small) freq IOP(2/16=3)",
+               "#  pm3 opt=(verytight,nolinear,calcfc,small) freq IOP(2/16=3)",
+               "#  pm3 opt=(verytight,gdiis,maxcyc=200) freq=numerical IOP(2/16=3)",
+               "#  pm3 opt=tight freq IOP(2/16=3)",
+               "#  pm3 opt=tight freq=numerical IOP(2/16=3)",
+               "#  pm3 opt=(tight,nolinear,calcfc,small,maxcyc=200) freq IOP(2/16=3)",
+               "#  pm3 opt freq IOP(2/16=3)",
+               "#  pm3 opt=(verytight,gdiis) freq=numerical IOP(2/16=3) IOP(4/21=200)",
+               "#  pm3 opt=(calcfc,verytight,newton,notrustupdate,small,maxcyc=100,maxstep=100) freq=(numerical,step=10) IOP(2/16=3) nosymm",
+               "#  pm3 opt=(tight,gdiis,small,maxcyc=200,maxstep=100) freq=numerical IOP(2/16=3) nosymm",
+               "#  pm3 opt=(tight,gdiis,small,maxcyc=200,maxstep=100) freq=numerical IOP(2/16=3) nosymm",
+               "#  pm3 opt=(verytight,gdiis,calcall,small,maxcyc=200) IOP(2/16=3) IOP(4/21=2) nosymm",
+               "#  pm3 opt=(verytight,gdiis,calcall,small) IOP(2/16=3) nosymm",
+               "#  pm3 opt=(calcall,small,maxcyc=100) IOP(2/16=3)",
                ]
 
     @property
@@ -395,12 +395,12 @@ class GaussianTS(QMReaction, Gaussian):
                    'Error in internal coordinate system.',
                    ]
     
-    def writeInputFile(self, attempt, fromSddl=False, fromQST2=False):
+    def writeInputFile(self, attempt, fromSddl=False, fromQST2=False, fromInt=False):
         """
         Using the :class:`Geometry` object, write the input file
         for the `attmept`th attempt.
         """
-        numProc = '%nprocshared=' + '4' + '\n' # could be something that is set in the qmSettings
+        numProc = '%nprocshared=' + '8' + '\n' # could be something that is set in the qmSettings
         mem = '%mem=' + '800MB' + '\n' # could be something that is set in the qmSettings
         chk_file = '%chk=' + os.path.join(self.settings.fileStore, self.uniqueID) + '\n'
         
@@ -461,6 +461,45 @@ class GaussianTS(QMReaction, Gaussian):
             for i, line in enumerate(lines):
                 output.append("{0:8s} {1}".format(atomnos[i], line))
                 atomCount += 1
+        elif fromInt:
+            molfile = self.getFilePath('int3')
+            if os.path.exists(molfile):
+                atomline = re.compile('\s*([A-Za-z]+)\s+([\- ][0-9.]+\s+[\-0-9.]+\s+[\-0-9.]+)')
+                
+                output = ['', self.geometry.uniqueID, '' ]
+                output.append("{charge}   {mult}".format(charge=0, mult=(self.geometry.molecule.getRadicalCount() + 1) ))
+                
+                atomCount = 0
+                with open(molfile) as molinput:
+                    for line in molinput:
+                        match = atomline.match(line)
+                        if match:
+                            output.append("{0:8s} {1}".format(match.group(1), match.group(2)))
+                            atomCount += 1
+        elif attempt > 1:
+            # Until checkpointing is fixed, do the following
+            output = ['', self.geometry.uniqueID, '' ]
+            output.append("{charge}   {mult}".format(charge=0, mult=(self.geometry.molecule.getRadicalCount() + 1) ))
+            
+            parser = cclib.parser.Gaussian(self.outputFilePath)
+            parser.logger.setLevel(logging.ERROR)
+            parser = parser.parse()
+            
+            lines = []
+            for line in parser.atomcoords[-1]:
+                lineList = ''
+                for item in line:
+                    if item > 0:
+                        lineList = lineList + ' ' + str(format(item, '.6f')) + ' '
+                    else:
+                        lineList = lineList + str(format(item, '.6f')) + ' '
+                lines.append(lineList)
+                
+            atomCount = 0
+            atomnos = parser.atomnos
+            for i, line in enumerate(lines):
+                output.append("{0:8s} {1}".format(getElement(int(atomnos[i])).symbol, line))
+                atomCount += 1
         else:
             molfile = self.geometry.getRefinedMolFilePath()
             atomline = re.compile('\s*([\- ][0-9.]+\s+[\-0-9.]+\s+[\-0-9.]+)\s+([A-Za-z]+)')
@@ -505,7 +544,7 @@ class GaussianTS(QMReaction, Gaussian):
         from the checkpoint file created during the geometry search.
         """
         # Should be unaffected by bad checkpoint files since this should only run if Normal termination of previous runs
-        numProc = '%nprocshared=' + '4' + '\n' # could be something that is set in the qmSettings
+        numProc = '%nprocshared=' + '8' + '\n' # could be something that is set in the qmSettings
         mem = '%mem=' + '800MB' + '\n' # could be something that is set in the qmSettings
         chk_file = '%chk=' + os.path.join(self.settings.fileStore, self.uniqueID) + '\n'
         
@@ -588,6 +627,73 @@ class GaussianTS(QMReaction, Gaussian):
             for line in outfile:
                 print line.rstrip()
         return self.verifyQST2OutputFile(), logFilePath
+    
+    def runInterplolation(self, pGeom):
+        """
+        Takes the reactant geometry (in `self`) and the product geometry (`pGeom`)
+        and does an interpolation. This can run nudged-elastic band calculations using
+        the Atomic Simulation Environment (`ASE <https://wiki.fysik.dtu.dk/ase/>`).
+        """
+        import ase
+        from ase import io, Atoms
+        from ase.neb import NEB, SingleCalculatorNEB
+        from ase.calculators.emt import EMT
+        from ase.calculators.mopac import Mopac
+        from ase.optimize import BFGS
+        
+        # Give ase the atom positions for each side of the reaction path
+        initial = ase.io.read(self.outputFilePath, format='gaussian_out')
+        final = ase.io.read(pGeom.getFilePath(self.outputFileExtension), format='gaussian_out')
+        
+        # ASE doesn't keep the atoms in the same order as it's positions (weird!),
+        # so get the correct atom list and recreate the images
+        molfile = self.geometry.getRefinedMolFilePath()
+        atomline = re.compile('\s*([\- ][0-9.]+\s+[\-0-9.]+\s+[\-0-9.]+)\s+([A-Za-z]+)')
+        
+        atomCount = 0
+        atomnos = []
+        with open(molfile) as molinput:
+            for line in molinput:
+                match = atomline.match(line)
+                if match:
+                    atomnos.append(match.group(2))
+                    atomCount += 1
+                    
+        newImage = Atoms(atomnos)
+        newImage.set_positions(initial.get_positions())
+        initial = newImage.copy()
+        
+        newImage = Atoms(atomnos)
+        newImage.set_positions(final.get_positions())
+        final = newImage.copy()
+        
+        # Now make a band of x + 2 images (x plus the initial and final geometries)
+        x = 3
+        images = [initial]
+        images += [initial.copy() for i in range(x)]
+        images += [final]
+        
+        # We use the linear NEB, but we can use the 'climbing image' variation by adding `climb=True`
+        neb = ase.neb.NEB(images)
+        
+        # Interpolate the positions of the middle images linearly, then set calculators
+        neb.interpolate()
+        
+        # # Set up the calculator
+        # calc = ase.calculators.emt.EMT()
+        # calc.set(multiplicity=self.geometry.molecule.getRadicalCount() + 1)
+        # 
+        # for image in images[1:x+1]:
+        #     image.set_calculator(calc)
+        
+        for j, image in enumerate(neb.images):
+            image.write(self.getFilePath('int') + str(j+1), format='xyz')
+        
+        # optimizer = BFGS(neb, trajectory='trajNEB.traj')
+        # optimizer.run()
+        # 
+        # for j, image in enumerate(neb.images):
+        #     image.write('optimized' + str(j+1), format='xyz')
         
     def runIRC(self):
         self.testReady()
@@ -794,7 +900,7 @@ class GaussianTS(QMReaction, Gaussian):
         parser.logger.setLevel(logging.ERROR) #cf. http://cclib.sourceforge.net/wiki/index.php/Using_cclib#Additional_information
         cclibData = parser.parse()
         
-        # # All between the ##### can be removed once we go back to # from #p in gaussian inputs
+        # # All between the ##### can be removed once we go back to # from #  in gaussian inputs
         # #####
         # molfile = outputFilePath.split('.')[0] + '.crude.mol'
         # atomline = re.compile('\s*([\- ][0-9.]+\s+[\-0-9.]+\s+[\-0-9.]+)\s+([A-Za-z]+)')
@@ -837,7 +943,7 @@ class GaussianTS(QMReaction, Gaussian):
         for molecule in self.reaction.reactants:
             radicalNumber += sum([i.radicalElectrons for i in molecule.atoms])
         
-        # # All between the ##### can be removed once we go back to # from #p in gaussian inputs
+        # # All between the ##### can be removed once we go back to # from #  in gaussian inputs
         # #####
         # molfile = self.getFilePath('.crude.mol')
         # atomline = re.compile('\s*([\- ][0-9.]+\s+[\-0-9.]+\s+[\-0-9.]+)\s+([A-Za-z]+)')
@@ -937,11 +1043,11 @@ class GaussianTSM062X(GaussianTS):
 
     #: Keywords that will be added at the top of the qm input file
     keywords = [
-                "#p m062x/gen opt=(ts,calcall,tight,noeigentest)  int=ultrafine nosymm",
-                "#p m062x/gen opt=(ts,calcall,tight,noeigentest,cartesian) int=ultrafine geom=allcheck guess=check nosymm",
-                "#p m062x/gen opt=(ts,calcall,noeigentest,cartesian) nosymm geom=allcheck guess=check nosymm",
-                "#p m062x/gen opt=(ts,calcall,noeigentest) nosymm",
-                "#p m062x/gen irc=(calcall,report=read) geom=allcheck guess=check nosymm",
+                "#  m062x/gen opt=(ts,calcall,tight,noeigentest)  int=ultrafine nosymm",
+                "#  m062x/gen opt=(ts,calcall,tight,noeigentest,cartesian) int=ultrafine geom=allcheck guess=check nosymm",
+                "#  m062x/gen opt=(ts,calcall,noeigentest,cartesian) nosymm geom=allcheck guess=check nosymm",
+                "#  m062x/gen opt=(ts,calcall,noeigentest) nosymm",
+                "#  m062x/gen irc=(calcall,report=read) geom=allcheck guess=check nosymm",
                ]
     """
     This needs some work, to determine options that are best used. Commented out the
@@ -1039,7 +1145,7 @@ class GaussianTSB3LYP(GaussianTS):
         
         output.append('')
         input_string = '\n'.join(output) + '\n'
-        top_keys = "#p b3lyp/6-31+g(d,p) opt=(modredundant,MaxCycles={N}) nosymm\n".format(N=max(100,atomCount*10))
+        top_keys = "#  b3lyp/6-31+g(d,p) opt=(modredundant,MaxCycles={N}) nosymm\n".format(N=max(100,atomCount*10))
         
         with open(inputFilePath, 'w') as gaussianFile:
             # gaussianFile.write(numProc)
@@ -1051,7 +1157,7 @@ class GaussianTSB3LYP(GaussianTS):
             gaussianFile.write('\n')
     
     def writeQST2InputFile(self, pGeom):
-        # numProc = '%nprocshared=' + '4' + '\n' # could be something that is set in the qmSettings
+        # numProc = '%nprocshared=' + '8' + '\n' # could be something that is set in the qmSettings
         # mem = '%mem=' + '800MB' + '\n' # could be something that is set in the qmSettings
         # For now we don't do this, until seg faults are fixed on Discovery.
         # chk_file = '%chk=' + os.path.join(self.settings.fileStore, self.uniqueID) + '\n'
@@ -1151,7 +1257,7 @@ class GaussianTSB3LYP(GaussianTS):
         
         output.append('')
         input_string = '\n'.join(output) + '\n'
-        top_keys = "#p b3lyp/6-31+g(d,p) opt=(qst2,calcall,noeigentest,MaxCycles={N}) nosymm\n".format(N=max(100,atomCount*10))
+        top_keys = "#  b3lyp/6-31+g(d,p) opt=(qst2,calcall,noeigentest,MaxCycles={N}) nosymm\n".format(N=max(100,atomCount*10))
         
         with open(self.inputFilePath, 'w') as gaussianFile:
             # gaussianFile.write(numProc)
@@ -1165,13 +1271,13 @@ class GaussianTSPM6(GaussianTS):
 
     #: Keywords that will be added at the top of the qm input file
     keywords = [
-                "#p pm6 opt=(ts,calcfc,noeigentest) freq", # nosymm
-                "#p pm6 opt=(ts,calcfc,noeigentest,cartesian) freq", # nosymm geom=allcheck guess=check
-                "#p pm6 opt=(ts,calcfc,noeigentest) freq nosymm geom=allcheck guess=read",
-                "#p pm6 opt=(ts,calcfc,noeigentest,cartesian) freq nosymm geom=allcheck guess=check",
-                "#p pm6 irc=(calcall,report=read) geom=allcheck guess=check nosymm",
-                "#p pm6 opt=(ts,calcall,tight,noeigentest) freq int=ultrafine nosymm",
-                "#p pm6 opt=(ts,calcall,tight,noeigentest,cartesian) freq int=ultrafine geom=allcheck guess=check nosymm",
+                "#  pm6 opt=(ts,calcfc,noeigentest) freq", # nosymm
+                "#  pm6 opt=(ts,calcfc,noeigentest,cartesian) freq", # nosymm geom=allcheck guess=check
+                "#  pm6 opt=(ts,calcfc,noeigentest) freq nosymm geom=allcheck guess=read",
+                "#  pm6 opt=(ts,calcfc,noeigentest,cartesian) freq nosymm geom=allcheck guess=check",
+                "#  pm6 irc=(calcall,report=read) geom=allcheck guess=check nosymm",
+                "#  pm6 opt=(ts,calcall,tight,noeigentest) freq int=ultrafine nosymm",
+                "#  pm6 opt=(ts,calcall,tight,noeigentest,cartesian) freq int=ultrafine geom=allcheck guess=check nosymm",
 
                 ]
                # "# b3lyp/6-31+g(d,p) opt=(ts,calcall,tight,noeigentest) int=ultrafine nosymm",
@@ -1230,7 +1336,7 @@ class GaussianTSPM6(GaussianTS):
         
         output.append('')
         input_string = '\n'.join(output) + '\n'
-        top_keys = "#p pm6 opt=(modredundant,MaxCycles={N}) nosymm\n".format(N=max(100,atomCount*10))
+        top_keys = "#  pm6 opt=(modredundant,MaxCycles={N}) nosymm\n".format(N=max(100,atomCount*10))
         
         with open(inputFilePath, 'w') as gaussianFile:
             # gaussianFile.write(numProc)
@@ -1242,7 +1348,7 @@ class GaussianTSPM6(GaussianTS):
             gaussianFile.write('\n')
     
     def writeQST2InputFile(self, pGeom):
-        # numProc = '%nprocshared=' + '4' + '\n' # could be something that is set in the qmSettings
+        # numProc = '%nprocshared=' + '8' + '\n' # could be something that is set in the qmSettings
         # mem = '%mem=' + '800MB' + '\n' # could be something that is set in the qmSettings
         # For now we don't do this, until seg faults are fixed on Discovery.
         # chk_file = '%chk=' + os.path.join(self.settings.fileStore, self.uniqueID) + '\n'
@@ -1342,7 +1448,7 @@ class GaussianTSPM6(GaussianTS):
         
         output.append('')
         input_string = '\n'.join(output) + '\n'
-        top_keys = "#p pm6 opt=(qst2,calcall,noeigentest,MaxCycles={N}) nosymm\n".format(N=max(100,atomCount*10))
+        top_keys = "#  pm6 opt=(qst2,calcall,noeigentest,MaxCycles={N}) nosymm\n".format(N=max(100,atomCount*10))
         
         with open(self.inputFilePath, 'w') as gaussianFile:
             # gaussianFile.write(numProc)
