@@ -1193,7 +1193,7 @@ class KineticsFamily(Database):
         else:
             return productStructures
 
-    def __generateProductStructures(self, reactantStructures, maps, forward):
+    def __generateProductStructures(self, reactantStructures, maps, forward, failsSpeciesConstraints=None, getTS=False):
         """
         For a given set of `reactantStructures` and a given set of `maps`,
         generate and return the corresponding product structures. The
