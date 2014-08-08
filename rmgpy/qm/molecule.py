@@ -421,12 +421,12 @@ class QMMolecule:
                 logging.info("Creating directory %s for QM files."%os.path.abspath(path))
                 os.makedirs(path)
         
-    def createGeometry(self):
+    def createGeometry(self, boundsMatrix=None, atomMatch=None):
         """
         Creates self.geometry with RDKit geometries
         """
         self.geometry = Geometry(self.settings, self.uniqueID, self.molecule, uniqueIDlong=self.uniqueIDlong)
-        self.geometry.generateRDKitGeometries()
+        self.geometry.generateRDKitGeometries(boundsMatrix, atomMatch)
         return self.geometry
         
     def parse(self):
