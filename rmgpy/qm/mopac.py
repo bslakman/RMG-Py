@@ -78,65 +78,7 @@ class Mopac:
     maxAttempts = 2 * scriptAttempts
     
         return self.verifyOutputFile()
-        
-    def parse(self):
-        """
-        Parses the results of the Mopac calculation, and returns a CCLibData object.
-        """
-        parser = cclib.parser.Mopac(self.outputFilePath)
-        parser.logger.setLevel(logging.ERROR) #cf. http://cclib.sourceforge.net/wiki/index.php/Using_cclib#Additional_information
-        cclibData = parser.parse()
-        radicalNumber = sum([i.radicalElectrons for i in self.molecule.atoms])
-        qmData = CCLibData(cclibData, radicalNumber+1)
-        return qmData
-
-class MopacMol(QMMolecule, Mopac):
-    """
-    A base Class for calculations of molecules using MOPAC. 
-    
-    Inherits from both :class:`QMMolecule` and :class:`Mopac`.
-    """
-                
-    def inputFileKeywords(self, attempt):
-        """
-        Return the top, bottom, and polar keywords.
-        """
-        raise NotImplementedError("Should be defined by subclass, eg. MopacMolPM3")
-        
-    def writeInputFile(self, attempt):
-        """
-        Using the :class:`Geometry` object, write the input file
-        for the `attmept`th attempt.
-        """
-        
-        molfile = self.getMolFilePathForCalculation(attempt) 
-        atomline = re.compile('\s*([\- ][0-9.]+)\s+([\- ][0-9.]+)+\s+([\- ][0-9.]+)\s+([A-Za-z]+)')
-        
-        output = [ self.geometry.uniqueIDlong, '' ]
-    
-        atomCount = 0
-        with open(molfile) as molinput:
-            for line in molinput:
-                match = atomline.match(line)
-                if match:
-                    output.append("{0:4s} {1} 1 {2} 1 {3} 1".format(match.group(4), match.group(1), match.group(2), match.group(3)))
-                    atomCount += 1
-        assert atomCount == len(self.molecule.atoms)
-    
-        output.append('')
-        input_string = '\n'.join(output)
-        
-        top_keys, bottom_keys, polar_keys = self.inputFileKeywords(attempt)
-        with open(self.inputFilePath, 'w') as mopacFile:
-            mopacFile.write(top_keys)
-            mopacFile.write('\n')
-            mopacFile.write(input_string)
-            mopacFile.write('\n')
-            mopacFile.write(bottom_keys)
-            if self.usePolar:
-                mopacFile.write('\n\n\n')
-                mopacFile.write(polar_keys)
-    
+                            
     def verifyOutputFile(self):
         """
         Check's that an output file exists and was successful.
@@ -228,33 +170,95 @@ class MopacMol(QMMolecule, Mopac):
             logging.error("No InChI was found in the MOPAC output file {0}".format(self.outputFilePath))
             return False
         
-        if InChIMatch:
-            # Compare the optimized geometry to the original molecule
-            parser = cclib.parser.Mopac(self.outputFilePath)
-            parser.logger.setLevel(logging.ERROR) #cf. http://cclib.sourceforge.net/wiki/index.php/Using_cclib#Additional_information
-            cclibData = parser.parse()
-            cclibMol = Molecule()
-            cclibMol.fromXYZ(cclibData.atomnos, cclibData.atomcoords[-1])
-            testMol = self.molecule.toSingleBonds()
-            
-            if cclibMol.isIsomorphic(testMol):
-                logging.info("Successful MOPAC quantum result found in {0}".format(self.outputFilePath))
-                # " + self.molfile.name + " ("+self.molfile.InChIAug+") has been found. This log file will be used.")
-                return True
-            else:
-                logging.info("Incorrect connectivity for optimized geometry in file {0}".format(self.outputFilePath))
-                # " + self.molfile.name + " ("+self.molfile.InChIAug+") has been found. This log file will be used.")
-                return False
+        if not InChIMatch:
+            #InChIs do not match (most likely due to limited name length mirrored in log file (240 characters), but possibly due to a collision)
+            return self.checkForInChiKeyCollision(logFileInChI) # Not yet implemented!
         
-        #InChIs do not match (most likely due to limited name length mirrored in log file (240 characters), but possibly due to a collision)
-        return self.checkForInChiKeyCollision(logFileInChI) # Not yet implemented!
+        # Compare the optimized geometry to the original molecule
+        qmData = self.parse()
+        cclibMol = Molecule()
+        cclibMol.fromXYZ(qmData.atomicNumbers, qmData.atomCoords.value)
+        testMol = self.molecule.toSingleBonds()
+        if not cclibMol.isIsomorphic(testMol):
+            logging.info("Incorrect connectivity for optimized geometry in file {0}".format(self.outputFilePath))
+            return False
+
+        logging.info("Successful MOPAC quantum result found in {0}".format(self.outputFilePath))
+        return True 
     
     def getParser(self, outputFile):
+             """
+             Returns the appropriate cclib parser.
+             """
+             return cclib.parser.Mopac(outputFile)
+    
+    def parse(self):
         """
-        Returns the appropriate cclib parser.
+        Parses the results of the Mopac calculation, and returns a CCLibData object.
         """
-        return cclib.parser.Mopac(outputFile)
+        parser = cclib.parser.Mopac(self.outputFilePath)
+        parser.logger.setLevel(logging.ERROR) #cf. http://cclib.sourceforge.net/wiki/index.php/Using_cclib#Additional_information
+        cclibData = parser.parse()
+        radicalNumber = sum([i.radicalElectrons for i in self.molecule.atoms])
+        qmData = CCLibData(cclibData, radicalNumber+1)
+        return qmData
 
+class MopacMol(QMMolecule, Mopac):
+    """
+    A base Class for calculations of molecules using MOPAC. 
+    
+    Inherits from both :class:`QMMolecule` and :class:`Mopac`.
+    """
+
+    #: Keywords that will be added at the top and bottom of the qm input file
+    keywords = [
+                {'top':"precise nosym", 'bottom':"oldgeo thermo nosym precise "},
+                {'top':"precise nosym gnorm=0.0 nonr", 'bottom':"oldgeo thermo nosym precise "},
+                {'top':"precise nosym gnorm=0.0", 'bottom':"oldgeo thermo nosym precise "},
+                {'top':"precise nosym gnorm=0.0 bfgs", 'bottom':"oldgeo thermo nosym precise "},
+                {'top':"precise nosym recalc=10 dmax=0.10 nonr cycles=2000 t=2000", 'bottom':"oldgeo thermo nosym precise "},
+                ]
+
+    def writeInputFile(self, attempt):
+        """
+        Using the :class:`Geometry` object, write the input file
+        for the `attmept`th attempt.
+        """
+        
+        molfile = self.getMolFilePathForCalculation(attempt) 
+        atomline = re.compile('\s*([\- ][0-9.]+)\s+([\- ][0-9.]+)+\s+([\- ][0-9.]+)\s+([A-Za-z]+)')
+        
+        output = [ self.geometry.uniqueIDlong, '' ]
+ 
+        atomCount = 0
+        with open(molfile) as molinput:
+            for line in molinput:
+                match = atomline.match(line)
+                if match:
+                    output.append("{0:4s} {1} 1 {2} 1 {3} 1".format(match.group(4), match.group(1), match.group(2), match.group(3)))
+                    atomCount += 1
+        assert atomCount == len(self.molecule.atoms)
+    
+        output.append('')
+        input_string = '\n'.join(output)
+        
+        top_keys, bottom_keys, polar_keys = self.inputFileKeywords(attempt)
+        with open(self.inputFilePath, 'w') as mopacFile:
+            mopacFile.write(top_keys)
+            mopacFile.write('\n')
+            mopacFile.write(input_string)
+            mopacFile.write('\n')
+            mopacFile.write(bottom_keys)
+            if self.usePolar:
+                mopacFile.write('\n\n\n')
+                mopacFile.write(polar_keys)
+                
+    def inputFileKeywords(self, attempt):
+        """
+        Return the top, bottom, and polar keywords.
+        """
+        raise NotImplementedError("Should be defined by subclass, eg. MopacMolPM3")  
+                  
     def generateQMData(self):
         """
         Calculate the QM data and return a QMData object, or None if it fails.
