@@ -169,9 +169,6 @@ class Mopac:
                     InChIFound = True
                     if self.uniqueIDlong in logFileInChI:
                         InChIMatch = True
-                    elif self.uniqueIDlong.startswith(logFileInChI):
-                        logging.info("InChI too long to check, but beginning matches so assuming OK.")
-                        InChIMatch = True
                     else:
                         logging.warning("InChI in log file ({0}) didn't match that in geometry ({1}).".format(logFileInChI, self.uniqueIDlong))                    
                         # Use only up to first 80 characters to match due to MOPAC bug which deletes 81st character of InChI string

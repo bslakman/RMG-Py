@@ -135,7 +135,7 @@ class TestQMCalculator(unittest.TestCase):
 		self.assertIsNone(self.gauss2.settings.scratchDirectory)
 		
 		# Now set the default directories for those not set
-		outputDirectory = os.path.join(self.mop1.settings.fileStore, '..','..')
+		outputDirectory = os.path.join(self.mop1.settings.fileStore, '..', '..')
 		self.mop1.setDefaultOutputDirectory(outputDirectory)
 		self.mop2.setDefaultOutputDirectory(outputDirectory)
 		self.mop3.setDefaultOutputDirectory(outputDirectory)
