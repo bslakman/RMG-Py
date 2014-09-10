@@ -137,9 +137,45 @@ class Gaussian:
         else:
             return False # until the next line works
         
-        #InChIs do not match (most likely due to limited name length mirrored in log file (240 characters), but possibly due to a collision)
-        return self.checkForInChiKeyCollision(logFileInChI) # Not yet implemented!
+    def parse(self):
+        """
+        Parses the results of the Gaussian calculation, and returns a CCLibData object.
+        """
+        parser = cclib.parser.Gaussian(self.outputFilePath)
+        parser.logger.setLevel(logging.ERROR) #cf. http://cclib.sourceforge.net/wiki/index.php/Using_cclib#Additional_information
+        cclibData = parser.parse()
+        radicalNumber = sum([i.radicalElectrons for i in self.molecule.atoms])
+        qmData = CCLibData(cclibData, radicalNumber+1)
+        return qmData
     
+    def writeInputFile(self, output, attempt=None, top_keys=None, numProcShared=None, memory=None, checkPoint=False, bottomKeys=None):
+        """
+        Takes the output from the createInputFile method and prints the
+        file. Options provided allow the 
+        Using the :class:`Geometry` object, write the input file
+        for the `attmept`th attempt.
+        """
+        if not top_keys:
+            top_keys = self.inputFileKeywords(attempt)
+        output = [top_keys] + output
+        
+        if checkPoint:
+            chk_file = '%chk=' + os.path.join(self.settings.fileStore, self.uniqueID)
+            output = [chk_file] + output
+        if memory:
+            mem = '%mem={0}'.format(memory)
+            output = [mem] + output
+        if numProc:
+            numProc = '%nprocshared={0}'.format(numProcShared)
+            output = [numProc] + output
+        if bottomKeys:
+            output = output + [bottomKeys]
+        
+        input_string = '\n'.join(output)
+        
+        with open(self.inputFilePath, 'w') as gaussianFile:
+            gaussianFile.write(input_string)
+            gaussianFile.write('\n')                
     
 class GaussianMol(QMMolecule, Gaussian):
     """
@@ -148,7 +184,18 @@ class GaussianMol(QMMolecule, Gaussian):
     Inherits from both :class:`QMMolecule` and :class:`Gaussian`.
     """
     
-    def writeInputFile(self, attempt):
+    def inputFileKeywords(self, attempt):
+        """
+        Return the top keywords for attempt number `attempt`.
+    
+        NB. `attempt`s begin at 1, not 0.
+        """
+        assert attempt <= self.maxAttempts
+        if attempt > self.scriptAttempts:
+            attempt -= self.scriptAttempts
+        return self.keywords[attempt-1]
+    
+    def createInputFile(self, attempt):
         """
         Using the :class:`Geometry` object, write the input file
         for the `attmept`th attempt.
@@ -169,23 +216,7 @@ class GaussianMol(QMMolecule, Gaussian):
         assert atomCount == len(self.molecule.atoms)
     
         output.append('')
-        input_string = '\n'.join(output)
-        
-        top_keys = self.inputFileKeywords(attempt)
-        with open(self.inputFilePath, 'w') as gaussianFile:
-            gaussianFile.write(top_keys)
-            gaussianFile.write('\n')
-            gaussianFile.write(input_string)
-            gaussianFile.write('\n')
-            if self.usePolar:
-                gaussianFile.write('\n\n\n')
-                gaussianFile.write(polar_keys)
-    
-    def inputFileKeywords(self, attempt):
-        """
-        Return the top keywords.
-        """
-        raise NotImplementedError("Should be defined by subclass, eg. GaussianMolPM3")
+        self.writeInputFile(output, attempt)
     
     def generateQMData(self):
         """
@@ -202,7 +233,7 @@ class GaussianMol(QMMolecule, Gaussian):
             self.createGeometry()
             success = False
             for attempt in range(1, self.maxAttempts+1):
-                self.writeInputFile(attempt)
+                self.createInputFile(attempt)
                 logging.info('Trying {3} attempt {0} of {1} on molecule {2}.'.format(attempt, self.maxAttempts, self.molecule.toSMILES(), self.__class__.__name__))
                 success = self.run()
                 if success:
@@ -391,14 +422,20 @@ class GaussianTS(QMReaction, Gaussian):
                    'Error in internal coordinate system.',
                    ]
     
-    def writeInputFile(self, attempt, fromSddl=False, fromQST2=False, fromInt=False, fromNEB=False):
+    def inputFileKeywords(self, attempt):
+        """
+        Return the top keywords for attempt number `attempt`.
+    
+        NB. `attempt`s begin at 1, not 0.
+        """
+        
+        return self.keywords[attempt-1]
+    
+    def createInputFile(self, attempt, fromSddl=False, fromQST2=False, fromInt=False, fromNEB=False):
         """
         Using the :class:`Geometry` object, write the input file
         for the `attmept`th attempt.
         """
-        numProc = '%nprocshared=' + '20' + '\n' # could be something that is set in the qmSettings
-        mem = '%mem=' + '800MB' + '\n' # could be something that is set in the qmSettings
-        chk_file = '%chk=' + os.path.join(self.settings.fileStore, self.uniqueID) + '\n'
         
         if fromSddl:
             molfile = self.getFilePath('.arc')
@@ -518,56 +555,24 @@ class GaussianTS(QMReaction, Gaussian):
         assert atomCount == len(self.geometry.molecule.atoms)
         
         output.append('')
-        input_string = '\n'.join(output) + '\n'
-        top_keys = self.keywords[attempt - 1] + '\n'
-        
-        # This is for the MG3S
-        # atomTypes = []
-        # for atom in self.geometry.molecule.atoms:
-        #     if not atom.element.symbol in atomTypes:
-        #         atomTypes.append(atom.element.symbol)
-        
-        with open(self.ircInputFilePath, 'w') as gaussianFile:
-            gaussianFile.write(numProc)
-            gaussianFile.write(mem)
-            gaussianFile.write(chk_file)
-            gaussianFile.write(top_keys)
-            if attempt == 1 or attempt == 2:
-                gaussianFile.write(input_string)
-            else:
-                gaussianFile.write('\n')
-            gaussianFile.write('\n')
+        self.writeInputFile(output, attempt, numProcShared=20, memory='800MB', checkPoint=True)
     
-    def writeIRCFile(self):
+    def createIRCFile(self):
         """
         Using the :class:`Geometry` object, write the input file for the 
         IRC calculation on the transition state. The geometry is taken 
         from the checkpoint file created during the geometry search.
         """
-        # Should be unaffected by bad checkpoint files since this should only run if Normal termination of previous runs
-        numProc = '%nprocshared=' + '20' + '\n' # could be something that is set in the qmSettings
-        mem = '%mem=' + '800MB' + '\n' # could be something that is set in the qmSettings
-        chk_file = '%chk=' + os.path.join(self.settings.fileStore, self.uniqueID) + '\n'
         
-        top_keys = self.keywords[4] + '\n\n'
+        top_keys = self.keywords[4]
         output = "{charge}   {mult}".format(charge=0, mult=(self.geometry.molecule.getRadicalCount() + 1) )
         
         # atomTypes = []
         # for atom in self.geometry.molecule.atoms:
         #     if not atom.element.symbol in atomTypes:
         #         atomTypes.append(atom.element.symbol)
+        self.writeInputFile(output, top_keys=top_keys, numProcShared=20, memory='800MB', checkPoint=True)
         
-        with open(self.inputFilePath, 'w') as gaussianFile:
-            gaussianFile.write(numProc)
-            gaussianFile.write(mem)
-            gaussianFile.write(chk_file)
-            gaussianFile.write(top_keys)
-            gaussianFile.write(output)
-            gaussianFile.write('\n')
-            # for atom in atomTypes:
-            #     gaussianFile.write(self.mg3s[atom]) 
-            gaussianFile.write('\n')
-    
     def setImages(self, pGeom):
         """
         Set and return the initial and final ase images for the NEB calculation
@@ -606,8 +611,8 @@ class GaussianTS(QMReaction, Gaussian):
         else:
             success = False
             for attempt in range(1, self.maxAttempts+1):
-                self.writeInputFile(attempt)
-                self.writeIRCFile()
+                self.createInputFile(attempt)
+                self.createIRCFile()
                 success = self.run()
                 if success:
                     logging.info('Attempt {0} of {1} on species {2} succeeded.'.format(attempt, self.maxAttempts, self.molecule.toAugmentedInChI()))
@@ -1049,9 +1054,7 @@ class GaussianTSB3LYP(GaussianTS):
             image.set_calculator(ase.calculators.gaussian.Gaussian(command=self.executablePath + '< ' + label + '.com' + ' > ' + label + '.log', label=label))
             image.get_calculator().set(multiplicity=self.geometry.molecule.getRadicalCount() + 1, method='b3lyp', basis='6-31+g(d,p)')
     
-    def writeGeomInputFile(self, freezeAtoms, otherGeom=None):
-        numProc = '%nprocshared=' + '20' + '\n' # could be something that is set in the qmSettings
-        mem = '%mem=' + '800MB' + '\n' # could be something that is set in the qmSettings
+    def createGeomInputFile(self, freezeAtoms, otherGeom=None):
         
         output = [ '', self.geometry.uniqueIDlong, '', "{charge}   {mult}".format(charge=0, mult=(self.geometry.molecule.getRadicalCount() + 1) ) ]
         
@@ -1085,21 +1088,10 @@ class GaussianTSB3LYP(GaussianTS):
         assert atomCount == len(self.geometry.molecule.atoms)
         
         output.append('')
-        input_string = '\n'.join(output) + '\n'
         top_keys = "#  b3lyp/6-31+g(d,p) opt=(modredundant,MaxCycles={N}) nosymm\n".format(N=max(100,atomCount*10))
-        
-        with open(inputFilePath, 'w') as gaussianFile:
-            gaussianFile.write(numProc)
-            gaussianFile.write(mem)
-            # gaussianFile.write(chk_file)
-            gaussianFile.write(top_keys)
-            gaussianFile.write(input_string)
-            gaussianFile.write(bottom_keys)
-            gaussianFile.write('\n')
+        self.writeInputFile(output, top_keys=top_keys, numProcShared=20, memory='800MB', bottomKeys=bottom_keys)
     
-    def writeQST2InputFile(self, pGeom):
-        numProc = '%nprocshared=' + '20' + '\n' # could be something that is set in the qmSettings
-        mem = '%mem=' + '800MB' + '\n' # could be something that is set in the qmSettings
+    def createQST2InputFile(self, pGeom):
         # For now we don't do this, until seg faults are fixed on Discovery.
         # chk_file = '%chk=' + os.path.join(self.settings.fileStore, self.uniqueID) + '\n'
         output = ['', self.geometry.uniqueID, '' ]
@@ -1197,16 +1189,8 @@ class GaussianTSB3LYP(GaussianTS):
         # assert atomCount == len(self.geometry.molecule.atoms)
         
         output.append('')
-        input_string = '\n'.join(output) + '\n'
         top_keys = "#  b3lyp/6-31+g(d,p) opt=(qst2,calcall,noeigentest,MaxCycles={N}) nosymm\n".format(N=max(100,atomCount*10))
-        
-        with open(self.inputFilePath, 'w') as gaussianFile:
-            gaussianFile.write(numProc)
-            gaussianFile.write(mem)
-            # gaussianFile.write(chk_file)
-            gaussianFile.write(top_keys)
-            gaussianFile.write(input_string)
-            gaussianFile.write('\n')
+        self.writeInputFile(output, top_keys=top_keys, numProcShared=20, memory='800MB')
 
 class GaussianTSPM6(GaussianTS):
 
@@ -1253,7 +1237,7 @@ class GaussianTSPM6(GaussianTS):
             image.set_calculator(ase.calculators.gaussian.Gaussian(command=self.executablePath + '< g09.com > g09.log'))
             image.get_calculator().set(multiplicity=self.geometry.molecule.getRadicalCount() + 1, method='pm6', basis='')
     
-    def writeGeomInputFile(self, freezeAtoms, otherGeom=None):
+    def createGeomInputFile(self, freezeAtoms, otherGeom=None):
         
         output = [ '', self.geometry.uniqueIDlong, '', "{charge}   {mult}".format(charge=0, mult=(self.geometry.molecule.getRadicalCount() + 1) ) ]
         
@@ -1299,7 +1283,7 @@ class GaussianTSPM6(GaussianTS):
             gaussianFile.write(bottom_keys)
             gaussianFile.write('\n')
     
-    def writeQST2InputFile(self, pGeom):
+    def createQST2InputFile(self, pGeom):
         # numProc = '%nprocshared=' + '20' + '\n' # could be something that is set in the qmSettings
         # mem = '%mem=' + '800MB' + '\n' # could be something that is set in the qmSettings
         # For now we don't do this, until seg faults are fixed on Discovery.
