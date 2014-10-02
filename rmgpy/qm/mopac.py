@@ -200,8 +200,8 @@ class Mopac:
             logging.info("Incorrect connectivity for optimized geometry in file {0}".format(self.outputFilePath))
             return False
 
-        logging.info("Successful MOPAC quantum result found in {0}".format(self.outputFilePath))
-        return True 
+        logging.info("Successful {1} quantum result in {0}".format(self.outputFilePath, self.__class__.__name__))
+        return True
     
     def getParser(self, outputFile):
              """

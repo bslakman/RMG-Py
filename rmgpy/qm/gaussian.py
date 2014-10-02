@@ -137,12 +137,21 @@ class Gaussian:
             logging.error("No InChI was found in the Gaussian output file {0}".format(self.outputFilePath))
             return False
         
-        if InChIMatch:
-            logging.info("Successful Gaussian quantum result found in {0}".format(self.outputFilePath))
-            # " + self.molfile.name + " ("+self.molfile.InChIAug+") has been found. This log file will be used.")
-            return True
-        else:
-            return False # until the next line works
+        if not InChIMatch:
+            #InChIs do not match (most likely due to limited name length mirrored in log file (240 characters), but possibly due to a collision)
+            return self.checkForInChiKeyCollision(logFileInChI) # Not yet implemented!
+
+        # Compare the optimized geometry to the original molecule
+        qmData = self.parse()
+        cclibMol = Molecule()
+        cclibMol.fromXYZ(qmData.atomicNumbers, qmData.atomCoords.value)
+        testMol = self.molecule.toSingleBonds()
+        if not cclibMol.isIsomorphic(testMol):
+            logging.info("Incorrect connectivity for optimized geometry in file {0}".format(self.outputFilePath))
+            return False
+
+        logging.info("Successful {1} quantum result in {0}".format(self.outputFilePath, self.__class__.__name__))
+        return True
         
     def parse(self):
         """
@@ -245,7 +254,7 @@ class GaussianMol(QMMolecule, Gaussian):
                 success = self.run()
                 if success:
                     logging.info('Attempt {0} of {1} on species {2} succeeded.'.format(attempt, self.maxAttempts, self.molecule.toAugmentedInChI()))
-                    source = "QM Gaussian result created during this run."
+                    source = "QM {0} calculation attempt {1}".format(self.__class__.__name__, attempt )
                     break
             else:
                 logging.error('QM thermo calculation failed for {0}.'.format(self.molecule.toAugmentedInChI()))
