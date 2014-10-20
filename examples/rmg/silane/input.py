@@ -1,6 +1,6 @@
 # Data sources
 database(
-    thermoLibraries = ['primaryThermoLibrary'],
+    thermoLibraries = ['SiliconHydrideLibrary', 'primaryThermoLibrary'],
     reactionLibraries = [],
     seedMechanisms = [],
     kineticsDepositories = ['training'],
@@ -27,27 +27,13 @@ species(
     structure=SMILES("[H][H]")
 )
 
-species(
-    label='SiH3SiH',
-    reactive=True,
-    structure=adjacencyList("""
-	1 Si u0 p1 c0 {2,S} {3,S}
-	2 H u0 p0 c0 {1,S}
-	3 Si u0 p0 c0 {1,S} {4,S} {5,S} {6,S}
-	4 H u0 p0 c0 {3,S}
-	5 H u0 p0 c0 {3,S}
-	6 H u0 p0 c0 {3,S}
-	""")
-)
-
 # Reaction systems
 simpleReactor(
     temperature=(800,'K'),
     pressure=(1.0,'bar'),
     initialMoleFractions={
-        "SiH4": 0.8,
-	"H2": 0.1,
-	"SiH3SiH": 0.1
+        "SiH4": 0.5,
+	"H2": 0.5,
     },
     terminationConversion={
         'SiH4': 0.9,
