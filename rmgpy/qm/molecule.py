@@ -412,6 +412,29 @@ class QMMolecule:
         "The total number of attempts to try"
         return 2 * len(self.keywords)
     
+    def setOutputDirectory(self, outputDirectory):
+        """
+        Set up the fileStore and scratchDirectory if not already done.
+        """
+        subPath = os.path.join('Species', self.uniqueID, self.settings.method)
+        
+        setFileStore = True
+        setScratch = True
+        if self.settings.fileStore:
+            if self.settings.fileStore.endswith(subPath):
+                setFileStore = False
+        
+        if self.settings.scratchDirectory:
+            if self.settings.scratchDirectory.endswith(subPath):
+                setScratch = False
+                
+        if setFileStore:
+            self.settings.fileStore = os.path.join(outputDirectory, subPath)
+            logging.info("Setting the quantum mechanics fileStore to {0}".format(self.settings.fileStore))
+        if setScratch:
+            self.settings.scratchDirectory = os.path.join(outputDirectory, subPath)
+            logging.info("Setting the quantum mechanics fileStore to {0}".format(self.settings.scratchDirectory))            
+    
     def initialize(self):
         """
         Do any startup tasks.
@@ -428,7 +451,13 @@ class QMMolecule:
     def checkPaths(self):
         """
         Check the paths in the settings are OK. Make folders as necessary.
-        """        
+        """
+        if not os.path.exists(self.settings.RMG_bin_path):
+            raise Exception("RMG-Py 'bin' directory {0} does not exist.".format(self.settings.RMG_bin_path))
+        if not os.path.isdir(self.settings.RMG_bin_path):
+            raise Exception("RMG-Py 'bin' directory {0} is not a directory.".format(self.settings.RMG_bin_path))
+            
+        self.setOutputDirectory(self.settings.fileStore)
         self.settings.fileStore = os.path.expandvars(self.settings.fileStore) # to allow things like $HOME or $RMGpy
         self.settings.scratchDirectory = os.path.expandvars(self.settings.scratchDirectory)
         for path in [self.settings.fileStore, self.settings.scratchDirectory]:

@@ -55,7 +55,7 @@ class QMSettings():
     """
     def __init__(self,
                  software = None,
-                 method = 'pm3',
+                 method = None,
                  fileStore = None,
                  scratchDirectory = None,
                  onlyCyclics = True,
@@ -102,13 +102,11 @@ class QMCalculator():
     
     def __init__(self,
                  software = None,
-                 method = 'pm3',
+                 method = None,
                  fileStore = None,
                  scratchDirectory = None,
                  onlyCyclics = True,
                  maxRadicalNumber = 0,
-                 molecule = None,
-                 reaction = None,
                  ):
                  
         self.settings = QMSettings(software = software,
@@ -118,12 +116,6 @@ class QMCalculator():
                                    onlyCyclics = onlyCyclics,
                                    maxRadicalNumber = maxRadicalNumber,
                                    )
-        self.molecule = None
-        self.reaction = None
-        if molecule:
-            self.molecule = QMMolecule(molecule, self.settings)
-        if reaction:
-            self.reaction = QMReaction(reaction, self.settings)
             
         self.database = ThermoLibrary(name='QM Thermo Library')
         
@@ -200,7 +192,6 @@ class QMCalculator():
         Ignores the settings onlyCyclics and maxRadicalNumber and does the calculation anyway if asked.
         (I.e. the code that chooses whether to call this method should consider those settings).
         """
-        self.initialize()
         if self.settings.software == 'mopac':
             if self.settings.method == 'pm3':
                 qm_molecule_calculator = rmgpy.qm.mopac.MopacMolPM3(molecule, self.settings)
@@ -216,6 +207,8 @@ class QMCalculator():
                 qm_molecule_calculator = rmgpy.qm.gaussian.GaussianMolPM3(molecule, self.settings)
             elif self.settings.method == 'pm6':
                 qm_molecule_calculator = rmgpy.qm.gaussian.GaussianMolPM6(molecule, self.settings)
+            elif self.settings.method == 'b3lyp':
+                qm_molecule_calculator = rmgpy.qm.gaussian.GaussianMolB3LYP(molecule, self.settings)
             else:
                 raise Exception("Unknown QM method '{0}' for gaussian".format(self.settings.method))
             thermo0 = qm_molecule_calculator.generateThermoData()
@@ -230,7 +223,6 @@ class QMCalculator():
         Ignores the settings onlyCyclics and maxRadicalNumber and does the calculation anyway if asked.
         (I.e. the code that chooses whether to call this method should consider those settings).
         """
-        self.initialize()
         if self.settings.software == 'mopac':
             if self.settings.method == 'pm3':
                 qm_reaction_calculator = rmgpy.qm.mopac.MopacTSPM3(reaction, self.settings)

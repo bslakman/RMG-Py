@@ -118,16 +118,16 @@ class Gaussian:
                 if line.startswith("InChI="):
                     logFileInChI = line #output files should take up to 240 characters of the name in the input file
                     InChIFound = True
-                    if self.geometry.uniqueIDlong in logFileInChI:
+                    if self.uniqueIDlong in logFileInChI:
                         InChIMatch = True
                     elif self.uniqueIDlong.startswith(logFileInChI):
                         logging.info("InChI too long to check, but beginning matches so assuming OK.")
                         InChIMatch = True
                     else:
-                        logging.info("InChI in log file didn't match that in geometry.")
-                        logging.info(self.geometry.uniqueIDlong)
-                        logging.info(logFileInChI)
-        
+                        logging.warning("InChI in log file ({0}) didn't match that in geometry ({1}).".format(logFileInChI, self.uniqueIDlong))                    
+                        if self.uniqueIDlong.startswith(logFileInChI):
+                            logging.warning("but the beginning matches so it's probably just a truncation problem.")
+                            InChIMatch = True
         # Check that ALL 'success' keywords were found in the file.
         if not all( successKeysFound.values() ):
             logging.error('Not all of the required keywords for success were found in the output file!')
@@ -164,7 +164,7 @@ class Gaussian:
         qmData = CCLibData(cclibData, radicalNumber+1)
         return qmData
     
-    def writeInputFile(self, output, attempt=None, top_keys=None, numProcShared=None, memory=None, checkPoint=False, bottomKeys=None):
+    def writeInputFile(self, output, attempt=None, top_keys=None, numProcShared=None, memory=None, checkPoint=False, bottomKeys=None, inputFilePath=None):
         """
         Takes the output from the createInputFile method and prints the
         file. Options provided allow the 
@@ -181,7 +181,7 @@ class Gaussian:
         if memory:
             mem = '%mem={0}'.format(memory)
             output = [mem] + output
-        if numProc:
+        if numProcShared:
             numProc = '%nprocshared={0}'.format(numProcShared)
             output = [numProc] + output
         if bottomKeys:
@@ -189,7 +189,10 @@ class Gaussian:
         
         input_string = '\n'.join(output)
         
-        with open(self.inputFilePath, 'w') as gaussianFile:
+        if not inputFilePath:
+            inputFilePath = self.inputFilePath
+            
+        with open(inputFilePath, 'w') as gaussianFile:
             gaussianFile.write(input_string)
             gaussianFile.write('\n')                
     
@@ -394,27 +397,6 @@ class GaussianMolB3LYP(GaussianMol):
                "# b3lyp/6-31+g(d,p) opt=(calcall,small,maxcyc=100) IOP(2/16=3)",
                ]
 
-    @property
-    def scriptAttempts(self):
-        "The number of attempts with different script keywords"
-        return len(self.keywords)
-
-    @property
-    def maxAttempts(self):
-        "The total number of attempts to try"
-        return 2 * len(self.keywords)
-
-    def inputFileKeywords(self, attempt):
-        """
-        Return the top keywords for attempt number `attempt`.
-
-        NB. `attempt`s begin at 1, not 0.
-        """
-        assert attempt <= self.maxAttempts
-        if attempt > self.scriptAttempts:
-            attempt -= self.scriptAttempts
-        return self.keywords[attempt-1]
-
 ##########################################################################################
 
 class GaussianTS(QMReaction, Gaussian):
@@ -530,9 +512,9 @@ class GaussianTS(QMReaction, Gaussian):
         """
         
         top_keys = self.inputFileKeywords(0, irc=True)
-        output = "{charge}   {mult}".format(charge=0, mult=self.reactantGeom.molecule.multiplicity )
+        output = ['', "{charge}   {mult}".format(charge=0, mult=self.reactantGeom.molecule.multiplicity ), '', '']
         
-        self.writeInputFile(output, top_keys=top_keys, numProcShared=20, memory='800MB', checkPoint=True)
+        self.writeInputFile(output, top_keys=top_keys, numProcShared=20, memory='800MB', checkPoint=True, inputFilePath=self.ircInputFilePath)
     
     def createGeomInputFile(self, freezeAtoms, otherGeom=False):
         
