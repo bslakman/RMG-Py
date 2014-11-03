@@ -135,6 +135,15 @@ def processOldLibraryEntry(data):
     """
     raise NotImplementedError()
 
+class SolvationReaction():
+    """
+    Stores information about kinetics of a solvation reaction
+    """
+    def __init__(self, reactants=None, solvent=None, gasKinetics=None, barrierCorrection=None):
+        self.reactants = reactants #A list of species
+        self.solvent = solvent #Solvent name 
+        self.gasKinetics = gasKinetics #A kinetics object
+        self.barrierCorrection = barrierCorrection #A quantity in energy units (kJ/mol, kcal/mol etc)
 
 class SolventData():
     """
@@ -894,3 +903,9 @@ class SolvationDatabase(object):
         correction.gibbs = self.calcG(soluteData, solventData)  
         correction.entropy = self.calcS(correction.gibbs, correction.enthalpy) 
         return correction
+    
+    def getSolvationKinetics(self, solvationReaction):
+        """
+        Return the barrier correction for a reaction
+        """
+        raise NotImplementedError()
