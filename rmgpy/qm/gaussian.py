@@ -235,7 +235,7 @@ class GaussianMol(QMMolecule, Gaussian):
         assert atomCount == len(self.molecule.atoms)
     
         output.append('')
-        self.writeInputFile(output, attempt, numProcShared=20, memory='800MB')
+        self.writeInputFile(output, attempt, numProcShared=20, memory='2GB')
     
     def generateQMData(self):
         """
