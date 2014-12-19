@@ -533,6 +533,7 @@ class KineticsFamily(Database):
         If depositoryLabels is None then load 'training' first then everything else.
         If depositoryLabels is not None then load in the order specified in depositoryLabels.
         """
+        
         local_context['recipe'] = self.loadRecipe
         local_context['template'] = self.loadTemplate
         local_context['forbidden'] = self.loadForbidden
@@ -618,8 +619,23 @@ class KineticsFamily(Database):
         if os.path.exists(os.path.join(path, 'TS_groups.py')):
             logging.debug("Loading transition state groups for {0}".format(path))
             self.transitionStates = TransitionStates()
+            self.transitionStates.family = KineticsFamily(  entries=None,
+                                                            top=None,
+                                                            label=self.label,
+                                                            name=self.name,
+                                                            reverse='',
+                                                            shortDesc='',
+                                                            longDesc='',
+                                                            forwardTemplate=self.forwardTemplate,
+                                                            forwardRecipe=self.forwardRecipe,
+                                                            reverseTemplate=self.reverseTemplate,
+                                                            reverseRecipe=self.reverseRecipe,
+                                                            forbidden=None
+                                                            )
+                                                            
+            self.transitionStates.load(path, local_context, global_context)
         
-	# Load solvation kinetic database for this family if it exists
+        # Load solvation kinetic database for this family if it exists
         for subdir, dirs, files in os.walk(path):
             if os.path.exists(os.path.join(path, subdir, 'solvationGroups.py')):
                 logging.debug("Loading solvation kinetic corrections for {0}/{1}".format(path, subdir))
@@ -638,7 +654,7 @@ class KineticsFamily(Database):
                                                             )
 	        self.solvationCorrections.load(path, local_context, global_context)
 
-            
+
     def loadTemplate(self, reactants, products, ownReverse=False):
         """
         Load information about the reaction template.
@@ -1352,26 +1368,9 @@ class KineticsFamily(Database):
                     for product in rxn.products:
                         logging.info("Product")
                         logging.info(product.toAdjacencyList())
-                    logging.error("Debugging why no reaction was found...")
-                    logging.error("Checking whether the family's forbidden species have affected reaction generation...")
-                    # Set family's forbidden structures to empty for now to see if reaction gets generated...
-                    # Note that it is not necessary to check global forbidden structures, because this reaction would not have
-                    # been formed in the first place.
-                    tempObject = self.forbidden
-                    self.forbidden = ForbiddenStructures()  # Initialize with empty one
-                    reactions = self.__generateReactions(rxn.products, products=rxn.reactants, forward=True)
-                    if len(reactions) != 1:
-                        logging.error("Still experiencing error: Expecting one matching reverse reaction, not {0} in reaction family {1} for forward reaction {2}.\n".format(len(reactions), self.label, str(rxn)))
-                        raise KineticsError("Did not find reverse reaction in reaction family {0} for reaction {1}.".format(self.label, str(rxn)))
-                    else:
-                        logging.error("Error was fixed, the product is a forbidden structure when used as a reactant in the reverse direction.")
-                        # Delete this reaction, since it should probably also be forbidden in the initial direction
-                        # Hack fix for now
-                        del rxn
+                    #raise KineticsError("Did not find reverse reaction in reaction family {0} for reaction {1}.".format(self.label, str(rxn)))
                 else:
                     rxn.reverse = reactions[0]
-
-
             
         else: # family is not ownReverse
             # Reverse direction (the direction in which kinetics is not defined)
