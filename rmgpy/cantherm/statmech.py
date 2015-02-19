@@ -620,7 +620,9 @@ def applyEnergyCorrections(E0, modelChemistry, atoms, bonds):
         
     elif modelChemistry in ['BMK/cbsb7', 'BMK/6-311G(2d,d,p)']:
         atomEnergies = {'H':-0.498618853119+ SOC['H'], 'N':-54.5697851544+ SOC['N'], 'O':-75.0515210278+ SOC['O'], 'C':-37.8287310027+ SOC['C'], 'P':-341.167615941+ SOC['P'], 'S': -398.001619915+ SOC['S']}
-        
+    
+    elif modelChemistry == 'DFT_G09_m062x':
+	atomEnergies = {'H':-0.498134102226, 'O':-75.0618943698, 'C':-37.8407450794}    
     else:
         logging.warning('Unknown model chemistry "{0}"; not applying energy corrections.'.format(modelChemistry))
         return E0

@@ -157,7 +157,7 @@ class KineticsJob:
         order = len(self.reaction.reactants)
         klist *= 1e6 ** (order-1)
         self.kunits = {1: 's^-1', 2: 'cm^3/(mol*s)', 3: 'cm^6/(mol^2*s)'}[order]
-        self.reaction.kinetics = Arrhenius().fitToData(Tlist, klist, kunits=self.kunits)
+        self.reaction.kinetics = Arrhenius().fitToData(Tlist, klist, kunits=self.kunits, threeParams=False)
 
     def save(self, outputFile):
         """
