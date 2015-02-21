@@ -31,14 +31,20 @@
 """
 
 """
+import rmgpy.quantity as quantity
 
+import os
 import os.path
 import math
 import logging
+import numpy
+from copy import copy, deepcopy
+
 from copy import deepcopy
 from base import Database, Entry, makeLogicNode, DatabaseError
 
-from rmgpy.molecule import Molecule, Atom, Bond, Group, atomTypes
+import rmgpy.constants as constants
+from rmgpy.molecule import Molecule, Atom, Bond, Group
 
 ################################################################################
 
@@ -139,11 +145,20 @@ class SolvationReaction():
     """
     Stores information about kinetics of a solvation reaction
     """
-    def __init__(self, reactants=None, solvent=None, gasKinetics=None, barrierCorrection=None):
+    def __init__(self, reactants=None, products=None, solvent=None, gasKinetics=None, barrierCorrection=None):
         self.reactants = reactants #A list of species
+	self.products = products #A list of species
         self.solvent = solvent #Solvent name 
         self.gasKinetics = gasKinetics #A kinetics object
         self.barrierCorrection = barrierCorrection #A quantity in energy units (kJ/mol, kcal/mol etc)
+
+class BarrierCorrection():
+    """
+    Stores information about the correction to the energy between a reactant and its transition states.
+    """
+    def __init_(self, correction=None):
+	self.correction = correction
+	self.comment = u''
 
 class SolventData():
     """
@@ -313,7 +328,7 @@ class SolventLibrary(Database):
         
 class SoluteLibrary(Database):
     """
-    A class for working with a RMG solute library. Not currently used.
+    A class for working with a RMG solute library
     """
     def __init__(self, label='', name='', shortDesc='', longDesc=''):
         Database.__init__(self, label=label, name=name, shortDesc=shortDesc, longDesc=longDesc)
@@ -431,10 +446,366 @@ class SoluteGroups(Database):
         return processOldLibraryEntry(data)
 
 ################################################################################
+class SolvationKinetics(Database):
+    """
+    A class for working with the RMG database of solvation kinetic corrections.
+    """
+    def __init__(self):
+	self.groups = None
+	self.family = None
+    
+    def load(self, path, local_context, global_context):
+	if local_context is None: local_context = {}
+        local_context['BarrierCorrection'] = BarrierCorrection
 
+        fpath = os.path.join(path,'training/solvationReactions.py')
+
+	# copied from TS database - solvation depository??
+ 	# depository = TransitionStateDepository(label='{0}/TS_training'.format(path.split('/')[-1]))#'intra_H_migration/TS_training')
+        # depository.load(fpath, local_context, global_context )
+        # self.depository = depository
+
+	fpath = os.path.join(path, 'training/solvationGroups.py')
+	logging.debug("Loading solvation kinetics groups from {0}".format(fpath))
+	groups = SolvationKineticsGroups(label='{0}/solvationGroups'.format(path.split('/')[-1]))
+	groups.load(fpath, local_context, global_context)
+
+	self.family.forwardTemplate.reactants = [groups.entries[entry.label] for entry in self.family.forwardTemplate.reactants]
+	self.family.forwardTemplate.products = [groups.entries[entry.label] for entry in self.family.forwardTemplate.products]
+	self.family.entries = groups.entries
+	self.family.groups = groups
+	groups.numReactants = len(self.family.forwardTemplate.reactants)
+	self.groups = groups
+
+    def estimateBarrierCorrection(self, reaction):
+	return self.groups.estimateCorrectionUsingGroupAdditivity(reaction)
+
+    def saveSolvationGroups(self, path, entryName='entry'):
+        """
+        Save the current database to the file at location `path` on disk. The
+        optional `entryName` parameter specifies the identifier used for each
+        data entry.
+        """
+        entries = self.groups.getEntriesToSave()
+
+        # Write the header
+        f = codecs.open(path, 'w', 'utf-8')
+        f.write('#!/usr/bin/env python\n')
+        f.write('# encoding: utf-8\n\n')
+        f.write('name = "{0}"\n'.format(self.groups.name))
+        f.write('shortDesc = u"{0}"\n'.format(self.groups.shortDesc))
+        f.write('longDesc = u"""\n')
+        f.write(self.groups.longDesc)
+        f.write('\n"""\n\n')
+
+        # Save the entries
+        for entry in entries:
+            saveEntry(f, entry)
+
+        # Write the tree
+        if len(self.groups.top) > 0:
+            f.write('tree(\n')
+            f.write('"""\n')
+            f.write(self.generateOldTree(self.groups.top, 1))
+            f.write('"""\n')
+            f.write(')\n\n')
+
+        f.close()
+
+class SolvationKineticsGroups(Database):
+    """
+    A class for working with a database of group values for solvation kinetic corrections
+    """
+
+    def __init__(self, entries=None, top=None, label='', name='', shortDesc='', longDesc=''):
+	Database.__init__(self, entries, top, label, name, shortDesc, longDesc)
+
+    def __repr__(self):
+	return '<SolvationKineticsGroups "{0}:>'.format(self.label)
+
+    def loadEntry(self, index, label, group, correction, reference=None, referenceType='', shortDesc='', longDesc=''):
+        if group[0:3].upper() == 'OR{' or group[0:4].upper() == 'AND{' or group[0:7].upper() == 'NOT OR{' or group[0:8].upper() == 'NOT AND{':
+            item = makeLogicNode(group)
+        else:
+            item = Group().fromAdjacencyList(group)
+        self.entries[label] = Entry(
+            index = index,
+            label = label,
+            item = item,
+            data = correction,
+            reference = reference,
+            referenceType = referenceType,
+            shortDesc = shortDesc,
+            longDesc = longDesc.strip(),
+        )
+
+    def getReactionTemplate(self, reaction):
+        """
+        For a given `reaction` with properly-labeled :class:`Molecule` objects
+        as the reactants, determine the most specific nodes in the tree that
+        describe the reaction.
+        """
+        forwardTemplate = self.top[:]
+        temporary = []
+        symmetricTree = False
+        for entry in forwardTemplate:
+            if entry not in temporary:
+                temporary.append(entry)
+            else:
+                # duplicate node found at top of tree
+                # eg. R_recombination: ['Y_rad', 'Y_rad']
+                assert len(forwardTemplate)==2 , 'Can currently only do symmetric trees with nothing else in them'
+                symmetricTree = True
+        forwardTemplate = temporary
+
+        # Descend reactant trees as far as possible
+        template = []
+        for entry in forwardTemplate:
+            # entry is a top-level node that should be matched
+            group = entry.item
+
+            # To sort out "union" groups, descend to the first child that's not a logical node
+            # ...but this child may not match the structure.
+            # eg. an R3 ring node will not match an R4 ring structure.
+            # (but at least the first such child will contain fewest labels - we hope
+            if isinstance(entry.item, LogicNode):
+                group = entry.item.getPossibleStructures(self.entries)[0]
+
+            atomList = group.getLabeledAtoms() # list of atom labels in highest non-union node
+
+            for reactant in reaction.reactants:
+                if isinstance(reactant, Species):
+                    reactant = reactant.molecule[0]
+                # Match labeled atoms
+                # Check this reactant has each of the atom labels in this group
+                if not all([reactant.containsLabeledAtom(label) for label in atomList]):
+                    continue # don't try to match this structure - the atoms aren't there!
+                # Match structures
+                atoms = reactant.getLabeledAtoms()
+
+                matched_node = self.descendTree(reactant, atoms, root=entry)
+                if matched_node is not None:
+                    template.append(matched_node)
+                #else:
+                #    logging.warning("Couldn't find match for {0} in {1}".format(entry,atomList))
+                #    logging.warning(reactant.toAdjacencyList())
+
+        # Get fresh templates (with duplicate nodes back in)
+        forwardTemplate = self.top[:]
+        if self.label.lower().startswith('r_recombination'):
+            forwardTemplate.append(forwardTemplate[0])
+
+        # Check that we were able to match the template.
+        # template is a list of the actual matched nodes
+        # forwardTemplate is a list of the top level nodes that should be matched
+        if len(template) != len(forwardTemplate):
+            logging.warning('Unable to find matching template for reaction {0} in reaction family {1}'.format(str(reaction), str(self)) )
+            logging.warning(" Trying to match " + str(forwardTemplate))
+            logging.warning(" Matched "+str(template))
+            print str(self), template, forwardTemplate
+            for n,reactant in enumerate(reaction.reactants):
+                print "Reactant", n
+                print reactant.toAdjacencyList() + '\n'
+            for n,product in enumerate(reaction.products):
+                print "Product", n
+                print product.toAdjacencyList() + '\n'
+            raise UndeterminableKineticsError(reaction)
+
+        for reactant in reaction.reactants:
+            if isinstance(reactant, Species):
+                reactant = reactant.molecule[0]
+            #reactant.clearLabeledAtoms()
+
+        return template
+
+    def estimateCorrectionUsingGroupAdditivity(self, reaction):
+        """
+        Determine the barrier correction due to solvation for a reaction 
+        with the given `template` using group additivity.
+        """
+        template = self.getReactionTemplate(reaction)
+        referenceCorrection = self.top[0].data # or something like that
+
+        # Start with the generic barrier correction of the top-level nodes (should this just be 0 kJ/mol?)
+        # Make a copy so we don't modify the original
+        barrierCorrection = deepcopy(referenceCorrection)
+        
+        # Now add in more specific corrections if possible
+        for node in template:
+            entry = node
+            comment_line = "Matched node "
+            while not entry.data.correction and entry not in self.top:
+                # Keep climbing tree until you find a (non-top) node with a correction 
+                comment_line += "{0} >> ".format(entry.label)
+                entry = entry.parent
+            if entry.data.correction and entry not in self.top:
+                barrierCorrection.add(entry.data)
+                comment_line += "{0} ({1})".format(entry.label, entry.longDesc.split('\n')[0])
+            elif entry in self.top:
+                comment_line += "{0} (Top node)".format(entry.label)
+            barrierCorrection.comment += comment_line + '\n'
+        
+        return barrierCorrection
+    
+    def generateGroupAdditivityValues(self, trainingSet, user="Anonymous User"):
+        """
+        Generate the group additivity values using the given `trainingSet` of type (template, barrierCorrection). Returns 
+	``True`` if the group values have changed significantly since the last time they
+	 were fitted, or ``False`` otherwise.
+        """
+        # keep track of previous values so we can detect if they change
+        old_entries = dict()
+        for label,entry in self.entries.items():
+            if entry.data is not None:
+                old_entries[label] = entry.data
+
+        # Determine a complete list of the entries in the database, sorted as in the tree
+        groupEntries = self.top[:]
+
+        for entry in self.top:
+            groupEntries.extend(self.descendants(entry)) # Entries in the solvation kinetics groups tree
+
+        # Determine a unique list of the groups we will be able to fit parameters for
+        groupList = []
+        for template, corrections in trainingSet:
+            for group in template:
+                if group not in self.top:
+                    groupList.append(group)
+                    groupList.extend(self.ancestors(group)[:-1])
+        groupList = list(set(groupList))
+        groupList.sort(key=lambda x: x.index)
+
+        if True: # should remove this IF block, as we only have one method.
+            # Initialize dictionaries of fitted group values and uncertainties
+            groupValues = {}; groupUncertainties = {}; groupCounts = {}; groupComments = {}
+            for entry in groupEntries:
+                groupValues[entry] = []
+                groupUncertainties[entry] = []
+                groupCounts[entry] = []
+                groupComments[entry.label] = set()
+
+            # Generate least-squares matrix and vector
+            A = []; b = []
+
+            correction_data = []
+	    for template, correctionData in trainingSet:
+                d = correctionData
+                correction_data.append(d)
+
+                # Create every combination of each group and its ancestors with each other
+                combinations = []
+                for group in template:
+                    groups = [group]; groups.extend(self.ancestors(group)) # Groups from the group.py tree
+                    combinations.append(groups)
+                combinations = getAllCombinations(combinations)
+                # Add a row to the matrix for each combination
+                for groups in combinations:
+                    Arow = [1 if group in groups else 0 for group in groupList]
+                    Arow.append(1)
+                    brow = d
+                    A.append(Arow); b.append(brow)
+
+                    for group in groups:
+                        groupComments[group.label].add("{0!s}".format(template))
+
+            if len(A) == 0:
+                logging.warning('Unable to fit kinetics groups for family "{0}"; no valid data found.'.format(self.label))
+                return
+            A = numpy.array(A)
+            b = numpy.array(b)
+            correction_data = numpy.array(correction_data)
+
+            x, residues, rank, s = numpy.linalg.lstsq(A, b)
+            
+            # Determine error in each group
+            stdev = numpy.zeros(len(groupList)+1, numpy.float64)
+            count = numpy.zeros(len(groupList)+1, numpy.int)
+
+            for index in range(len(trainingSet)):
+                template, correction = trainingSet[index]
+                d = numpy.float64(correction_data[index])
+                dm = x[-1] + sum([x[groupList.index(group)] for group in template if group in groupList])
+                variance = (dm - d)**2
+                for group in template:
+                    groups = [group]
+                    groups.extend(self.ancestors(group))
+                    for g in groups:
+                        if g.label not in [top.label for top in self.top]:
+                            ind = groupList.index(g)
+                            stdev[ind] += variance
+                            count[ind] += 1
+                stdev[-1] += variance
+                count[-1] += 1
+
+            import scipy.stats
+            ci = numpy.zeros(len(count))
+            for i in range(len(count)):
+                if count[i] > 1:
+                    stdev[i] = numpy.sqrt(stdev[i] / (count[i] - 1))
+                    ci[i] = scipy.stats.t.ppf(0.975, count[i] - 1) * stdev[i]
+                else:
+                    stdev[i] = None
+                    ci[i] = None
+            # Update dictionaries of fitted group values and uncertainties
+            for entry in groupEntries:
+                if entry == self.top[0]:
+                    groupValues[entry].append(x[-1])
+                    groupUncertainties[entry].append(ci[-1])
+                    groupCounts[entry].append(count[-1])
+                elif entry.label in [group.label for group in groupList]:
+                    index = [group.label for group in groupList].index(entry.label)
+                    groupValues[entry].append(x[index])
+                    groupUncertainties[entry].append(ci[index])
+                    groupCounts[entry].append(count[index])
+                else:
+                    groupValues[entry] = None
+                    groupUncertainties[entry] = None
+                    groupCounts[entry] = None
+
+            # Store the fitted group values and uncertainties on the associated entries
+            for entry in groupEntries:
+                if groupValues[entry] is not None:
+                    if not any(numpy.isnan(numpy.array(groupUncertainties[entry]))):
+                        # should be entry.data.* (e.g. entry.data.uncertainties)
+                        uncertainties = numpy.array(groupUncertainties[entry])
+                        uncertaintyType = '+|-'
+                    else:
+                        uncertainties = {}
+                    # should be entry.*
+                    shortDesc = "Fitted to {0} solvation corrections.\n".format(groupCounts[entry][0])
+		    longDesc = "\n".join(groupComments[entry.label])
+                    entry.data = CorrectionData(correction=groupValues[entry], uncertainty=uncertainties)
+                    entry.shortDesc = shortDesc
+                    entry.longDesc = longDesc
+                else:
+                    entry.data = CorrectionData()
+
+        # Add a note to the history of each changed item indicating that we've generated new group values
+        import time
+        event = [time.asctime(), user, 'action', 'Generated new group additivity values for this entry.']
+        changed = False
+        for label, entry in self.entries.items():
+            if entry.data is not None:
+                continue # because this is broken:
+                if old_entries.has_key(label):
+                    old_entry = old_entries[label][label][0]
+                    for key, distance in entry.data.iteritems():
+                        diff = 0
+                        for k in range(3):
+                            diff += abs(distance[0][k]/old_entry[k] - 1)
+                        if diff > 0.01:
+                            changed = True
+                            entry.history.append(event)
+            else:
+                changed = True
+                entry.history.append(event)
+        return True # because the thing above is broken
+        return changed
+
+################################################################################
 class SolvationDatabase(object):
     """
-    A class for working with the RMG solvation database.
+    A class for working with the RMG solvation thermodynamics database.
     """
 
     def __init__(self):
