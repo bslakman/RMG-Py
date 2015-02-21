@@ -130,6 +130,9 @@ def saveEntry(f, entry):
     # Write kinetics
     if isinstance(entry.data, str):
         f.write('    kinetics = "{0}",\n'.format(entry.data))
+    elif isinstance(entry.data, CorrectionData):
+	correction = prettify(repr(entry.data))
+	f.write('    correction = "{0}",\n'.format(correction.replace('\n', '\n    ')))
     elif entry.data is not None:
         efficiencies = None
         if hasattr(entry.data, 'efficiencies'):
