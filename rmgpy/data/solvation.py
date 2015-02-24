@@ -163,10 +163,11 @@ class BarrierCorrection():
 class SolventData():
     """
     Stores Abraham/Mintz parameters for characterizing a solvent.
+    Also associated with a category for solvation kinetics corrections. 
     """
     def __init__(self, s_h=None, b_h=None, e_h=None, l_h=None, a_h=None,
     c_h=None, s_g=None, b_g=None, e_g=None, l_g=None, a_g=None, c_g=None, A=None, B=None, 
-    C=None, D=None, E=None, alpha=None, beta=None, eps=None):
+    C=None, D=None, E=None, alpha=None, beta=None, eps=None, category=None):
         self.s_h = s_h
         self.b_h = b_h
         self.e_h = e_h
@@ -190,6 +191,8 @@ class SolventData():
         self.beta = beta
         # This is the dielectric constant
         self.eps = eps
+        # This is the 'category' of solvent it belogns to
+        self.category = category
     
     def getHAbsCorrection(self):
         """
@@ -453,19 +456,20 @@ class SolvationKinetics(Database):
     def __init__(self):
 	self.groups = None
 	self.family = None
+	self.category = None
     
     def load(self, path, local_context, global_context):
 	if local_context is None: local_context = {}
         local_context['BarrierCorrection'] = BarrierCorrection
 
-        fpath = os.path.join(path,'training/solvationReactions.py')
+        fpath = os.path.join(path, self.category, 'training/solvationReactions.py')
 
 	# copied from TS database - solvation depository??
  	# depository = TransitionStateDepository(label='{0}/TS_training'.format(path.split('/')[-1]))#'intra_H_migration/TS_training')
         # depository.load(fpath, local_context, global_context )
         # self.depository = depository
 
-	fpath = os.path.join(path, 'training/solvationGroups.py')
+	fpath = os.path.join(path, self.category, 'solvationGroups.py')
 	logging.debug("Loading solvation kinetics groups from {0}".format(fpath))
 	groups = SolvationKineticsGroups(label='{0}/solvationGroups'.format(path.split('/')[-1]))
 	groups.load(fpath, local_context, global_context)

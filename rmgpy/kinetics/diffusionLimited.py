@@ -20,25 +20,29 @@ class LiquidKinetics():
         
         gasKinetics = self.reaction.kinetics
         k = gasKinetics.getRateCoefficient(T, P=1E5)
-        
-        """
-        If it is an H-abstraction reaction, correct the intrinsic rate here (best place?)
-        """
-        if self.reaction.family.label == 'H_Abstraction':
-            # get log10 of ratio of intrinsic constants k_solv/k_gas
-            correction = self.solventData.getHAbsCorrection()
-            return (10**correction)*k
-        else:
-            return k
-        if self.reaction.family.label == 'R_Addition_MultipleBond':
-            # get x, the correction to the barrier
-            x = 0
-            # Assume Arrhenius, so correct k accordingly
-            return k*math.exp(-x/8.314/T)
-        if self.reaction.family.label == 'Beta_Scission':
-            # rate increases with Dimroth-Reichardt
-            return k
-        return k
+       
+        solvationKineticsDatabase = self.reaction.family.solvationCorrections 
+        x = solvationKineticsDatabase.estimateBarrierCorrection()
+        return k*math.exp(-x/8.314/T)
+      
+        # """
+        # If it is an H-abstraction reaction, correct the intrinsic rate here (best place?)
+        # """
+        # if self.reaction.family.label == 'H_Abstraction':
+        #     # get log10 of ratio of intrinsic constants k_solv/k_gas
+        #     correction = self.solventData.getHAbsCorrection()
+        #     return (10**correction)*k
+        # else:
+        #     return k
+        # if self.reaction.family.label == 'R_Addition_MultipleBond':
+        #     # get x, the correction to the barrier
+        #     x = 0
+        #     # Assume Arrhenius, so correct k accordingly
+        #     return k*math.exp(-x/8.314/T)
+        # if self.reaction.family.label == 'Beta_Scission':
+        #     # rate increases with Dimroth-Reichardt
+        #     return k
+        # return k
 
 class DiffusionLimited():
 
