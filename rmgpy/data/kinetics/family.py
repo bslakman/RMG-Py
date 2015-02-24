@@ -49,7 +49,8 @@ from .common import KineticsError, UndeterminableKineticsError, saveEntry
 from .depository import KineticsDepository
 from .groups import KineticsGroups
 from .rules import KineticsRules
-
+from rmgpy.data.solvation import SolventData, SolvationDatabase, SolvationKinetics 
+from rmgpy.kinetics.diffusionLimited import diffusionLimiter
 ################################################################################
 
 class InvalidActionError(Exception):
@@ -355,6 +356,9 @@ class KineticsFamily(Database):
         self.rules = None
         self.depositories = []
 
+	# Database for solvation kinetic corrections
+	self.solvationCorrections = None
+
     def __repr__(self):
         return '<ReactionFamily "{0}">'.format(self.label)
 
@@ -604,7 +608,26 @@ class KineticsFamily(Database):
             logging.debug("Loading kinetics family depository from {0}".format(fpath))
             depository.load(fpath, local_context, global_context)
             self.depositories.append(depository)
-        
+       
+	# Load solvation kinetic database for this family if it exists
+	if os.path.exists(os.path.join(path, 'training/solvationGroups.py')):
+	    logging.debug("Loading solvation kinetic corrections for {0}".format(path))
+	    self.solvationCorrections = SolvationKinetics()
+	    self.solvationCorrections.category = diffusionLimiter.solventData.category
+	    self.solvationCorrections.family = KineticsFamily(  entries=None,
+                                                            top=None,
+                                                            label=self.label,
+                                                            name=self.name,
+                                                            reverse='',
+                                                            shortDesc='',
+                                                            longDesc='',
+                                                            forwardTemplate=self.forwardTemplate.copy(),
+                                                            forwardRecipe=self.forwardRecipe,
+                                                            reverseTemplate=None,
+                                                            reverseRecipe=None,
+                                                            forbidden=None
+                                                            )
+	    self.solvationCorections.load(path, local_context, global_context)
 
             
     def loadTemplate(self, reactants, products, ownReverse=False):

@@ -624,8 +624,8 @@ class Reaction:
         path degeneracies.
         
         If diffusionLimiter is enabled, the reaction is in the liquid phase and we use
-        a diffusion limitation to correct the rate. If not, then use the intrinsic rate
-        coefficient.
+        a diffusion limitation to correct the rate. This now includes an intrinsic rate 
+	correction for liquid-phase reactions too.
         """
         if diffusionLimiter.enabled:
             try:
@@ -640,7 +640,7 @@ class Reaction:
     def fixDiffusionLimitedA(self, T):
         """
         Decrease the pre-exponential factor (A) by a factor of getDiffusionFactor
-        to account for the diffusion limit.
+        to account for the diffusion limit. I don't think this is currently used anywhere.
         """
         # Decrease self.kinetics.A (if Arrhenius or ArrheniusEP)
         self.kinetics.A = self.kinetics.A * self.getDiffusionFactor(T)
