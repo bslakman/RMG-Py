@@ -56,8 +56,6 @@ class Geometry:
             #: Long, truly unique, ID, such as the augmented InChI.
             self.uniqueIDlong = uniqueIDlong
         
-        # ToDo: why do we copy self.settings.fileStore into self.fileStore ?
-        # (and same for .scratchDirectory)
         if self.settings:
             self.fileStore = self.settings.fileStore
             self.scratchDirectory = self.settings.scratchDirectory
@@ -73,7 +71,7 @@ class Geometry:
             logging.info("Creating scratch directory %s for qm files."%os.path.abspath(self.scratchDirectory))
             os.makedirs(self.scratchDirectory)
 
-    def getFilePath(self, extension, scratch=True):
+    def getFilePath(self, extension):
         """
         Returns the path to the file with the given extension.
         
@@ -412,7 +410,7 @@ class QMMolecule:
         "The total number of attempts to try"
         return 2 * len(self.keywords)
     
-    def setOutputDirectory(self, outputDirectory, scratchDirectory=None):
+    def setOutputDirectory(self, outputDirectory):
         """
         Set up the fileStore and scratchDirectory if not already done.
         """
