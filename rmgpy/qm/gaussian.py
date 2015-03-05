@@ -225,7 +225,7 @@ class GaussianMol(QMMolecule, Gaussian):
         assert atomCount == len(self.molecule.atoms)
     
         output.append('')
-        self.writeInputFile(output, attempt, numProcShared=40, memory='10GB')
+        self.writeInputFile(output, attempt, numProcShared=20, memory='10GB')
     
     def generateQMData(self):
         """
@@ -360,9 +360,7 @@ class GaussianMolPM3(GaussianMol):
 
 class GaussianMolB3LYP(GaussianMol):
     """
-    For use with the automated transition state estimator. This will find the
-    stable species geomtries when required for TST rate calculation.
-    """
+    Gaussian B3LYP calculations for molecules
 
     #: Keywords that will be added at the top of the qm input file
     # removed 'gdiis' from the keywords; http://www.gaussian.com/g_tech/g_ur/d_obsolete.htm
@@ -385,6 +383,36 @@ class GaussianMolB3LYP(GaussianMol):
                "# b3lyp/6-31+g(d,p) opt=(verytight,gdiis,calcall,small,maxcyc=200) IOP(2/16=3) IOP(4/21=2) nosymm",
                "# b3lyp/6-31+g(d,p) opt=(verytight,gdiis,calcall,small) IOP(2/16=3) nosymm",
                "# b3lyp/6-31+g(d,p) opt=(calcall,small,maxcyc=100) IOP(2/16=3)",
+               ]
+
+class GaussianMolM062X(GaussianMol):
+    """
+    Gaussian M06-2X calculations for molecules
+
+    This is a class of its own in case you wish to do anything differently,
+    but for now it's only the 'pm6' in the keywords that differs.
+    """
+    #: Keywords that will be added at the top of the qm input file
+    keywords = [
+                # The combinations of keywords were derived by Greg Magoon for pm3. For now, we assume similar ones will work for pm6:
+               "# m062x/6-311+g(2df,2p) opt=(verytight,gdiis) freq IOP(2/16=3)",
+               "# m062x/6-311+g(2df,2p) opt=(verytight,gdiis) freq IOP(2/16=3) IOP(4/21=2)",
+               "# m062x/6-311+g(2df,2p) opt=(verytight,calcfc,maxcyc=200) freq IOP(2/16=3) nosymm" ,
+               "# m062x/6-311+g(2df,2p) opt=(verytight,calcfc,maxcyc=200) freq=numerical IOP(2/16=3) nosymm",
+               "# m062x/6-311+g(2df,2p) opt=(verytight,gdiis,small) freq IOP(2/16=3)",
+               "# m062x/6-311+g(2df,2p) opt=(verytight,nolinear,calcfc,small) freq IOP(2/16=3)",
+               "# m062x/6-311+g(2df,2p) opt=(verytight,gdiis,maxcyc=200) freq=numerical IOP(2/16=3)",
+               "# m062x/6-311+g(2df,2p) opt=tight freq IOP(2/16=3)",
+               "# m062x/6-311+g(2df,2p) opt=tight freq=numerical IOP(2/16=3)",
+               "# m062x/6-311+g(2df,2p) opt=(tight,nolinear,calcfc,small,maxcyc=200) freq IOP(2/16=3)",
+               "# m062x/6-311+g(2df,2p) opt freq IOP(2/16=3)",
+               "# m062x/6-311+g(2df,2p) opt=(verytight,gdiis) freq=numerical IOP(2/16=3) IOP(4/21=200)",
+               "# m062x/6-311+g(2df,2p) opt=(calcfc,verytight,newton,notrustupdate,small,maxcyc=100,maxstep=100) freq=(numerical,step=10) IOP(2/16=3) nosymm",
+               "# m062x/6-311+g(2df,2p) opt=(tight,gdiis,small,maxcyc=200,maxstep=100) freq=numerical IOP(2/16=3) nosymm",
+               "# m062x/6-311+g(2df,2p) opt=(verytight,gdiis,calcall) IOP(2/16=3)",
+               "# m062x/6-311+g(2df,2p) opt=(verytight,gdiis,calcall,small,maxcyc=200) IOP(2/16=3) IOP(4/21=2) nosymm",
+               "# m062x/6-311+g(2df,2p) opt=(verytight,gdiis,calcall,small) IOP(2/16=3) nosymm",
+               "# m062x/6-311+g(2df,2p) opt=(calcall,small,maxcyc=100) IOP(2/16=3)",
                ]
 
 ##########################################################################################
@@ -495,7 +523,7 @@ class GaussianTS(QMReaction, Gaussian):
         assert atomCount == len(self.reactantGeom.molecule.atoms)
         
         output.append('')
-        self.writeInputFile(output, attempt, numProcShared=40, memory='10GB', checkPoint=True)
+        self.writeInputFile(output, attempt, numProcShared=20, memory='10GB', checkPoint=True)
     
     def createIRCFile(self):
         """
@@ -507,7 +535,7 @@ class GaussianTS(QMReaction, Gaussian):
         top_keys = self.inputFileKeywords(0, irc=True)
         output = ['', "{charge}   {mult}".format(charge=0, mult=self.reactantGeom.molecule.multiplicity ), '', '']
         
-        self.writeInputFile(output, top_keys=top_keys, numProcShared=40, memory='10GB', checkPoint=True, inputFilePath=self.ircInputFilePath)
+        self.writeInputFile(output, top_keys=top_keys, numProcShared=20, memory='10GB', checkPoint=True, inputFilePath=self.ircInputFilePath)
     
     def createGeomInputFile(self, freezeAtoms, otherGeom=False):
         
@@ -544,7 +572,7 @@ class GaussianTS(QMReaction, Gaussian):
         
         output.append('')
         top_keys = self.inputFileKeywords(0, modRed=atomCount)
-        self.writeInputFile(output, top_keys=top_keys, numProcShared=40, memory='10GB', bottomKeys=bottom_keys)
+        self.writeInputFile(output, top_keys=top_keys, numProcShared=20, memory='10GB', bottomKeys=bottom_keys)
     
     def createQST2InputFile(self):
         # For now we don't do this, until seg faults are fixed on Discovery.
@@ -569,7 +597,7 @@ class GaussianTS(QMReaction, Gaussian):
         
         output.append('')
         top_keys = self.inputFileKeywords(0, qst2=atomCount)
-        self.writeInputFile(output, top_keys=top_keys, numProcShared=40, memory='10GB')
+        self.writeInputFile(output, top_keys=top_keys, numProcShared=20, memory='10GB')
         
     def optEstimate(self, labels):
         """
@@ -609,7 +637,7 @@ class GaussianTS(QMReaction, Gaussian):
             for combo in dist_combo_l:
                 bottomKeys = bottomKeys + '{0} {1} F\n'.format(combo[0] + 1, combo[1] + 1)
             
-            self.writeInputFile(output, attempt, top_keys=top_keys, numProcShared=40, memory='10GB', bottomKeys=bottomKeys, inputFilePath=inputFilePath)
+            self.writeInputFile(output, attempt, top_keys=top_keys, numProcShared=20, memory='10GB', bottomKeys=bottomKeys, inputFilePath=inputFilePath)
             
             outputFilePath = self.runDouble(inputFilePath)
         
@@ -738,7 +766,9 @@ class GaussianTS(QMReaction, Gaussian):
         
         return True, notes
     
-    def conductDoubleEnded(self, NEB=False):
+    def conductDoubleEnded(self, notes, NEB=False, labels=None):
+        check, notes = self.prepDoubleEnded(labels, notes)
+        
         if NEB:
             self.runNEB()
         else:
@@ -1106,7 +1136,7 @@ class GaussianTSM062X(GaussianTS):
     The 6-311+G(2df,2p) is recommended for this basis set.
     """
     method = 'm062x'
-    basisSet = '6-311+G(2df,2p)'# It's suppoed to be "6-311+g(3d2f,2df,2p)" to include 3rd row elements, but I get an error when I use that.
+    basisSet = '6-311+g(2df,2p)'# It's suppoed to be "6-311+g(3d2f,2df,2p)" to include 3rd row elements, but I get an error when I use that.
     
     # Before using the '6-311+G(2df,2p)', gen was being used and the basis set was explicitly
     # written in the input file
@@ -1138,6 +1168,15 @@ class GaussianTSM062X(GaussianTS):
     # for atom in self.geometry.molecule.atoms:
     #     if not atom.element.symbol in atomTypes:
     #         atomTypes.append(atom.element.symbol)
+    def getQMMolecule(self, molecule):
+        """
+        The TST calculation must use the same electronic structure and basis set for the
+        reactant species as the transition state. This method will ensure this by creating
+        and returning the corresponding QMMolecule from the child class GaussianMolM062X.
+        """
+        
+        qmMolecule = GaussianMolM062X(molecule, self.settings)
+        return qmMolecule
     
     
 class GaussianTSB3LYP(GaussianTS):
