@@ -136,6 +136,14 @@ class Entry(object):
         else:
             self._shortDesc = unicode(value)
 
+    def copy(self, deep=False):
+        from copy import copy, deepcopy
+        if deep:
+            other = deepcopy(self)
+        else:
+            other = copy(self)
+        return other
+
 ################################################################################
 
 class Database:
