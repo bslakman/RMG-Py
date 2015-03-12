@@ -40,7 +40,6 @@ import logging
 import numpy
 from copy import copy, deepcopy
 
-from copy import deepcopy
 from base import Database, Entry, makeLogicNode, DatabaseError
 
 import rmgpy.constants as constants
@@ -456,7 +455,7 @@ class SolvationKinetics(Database):
     def __init__(self):
 	self.groups = None
 	self.family = None
-	self.category = None
+	self.category = 'water' # for now, it's the only one we have
     
     def load(self, path, local_context, global_context):
 	if local_context is None: local_context = {}
@@ -473,7 +472,7 @@ class SolvationKinetics(Database):
 	logging.debug("Loading solvation kinetics groups from {0}".format(fpath))
 	groups = SolvationKineticsGroups(label='{0}/solvationGroups'.format(path.split('/')[-1]))
 	groups.load(fpath, local_context, global_context)
-
+        
 	self.family.forwardTemplate.reactants = [groups.entries[entry.label] for entry in self.family.forwardTemplate.reactants]
 	self.family.forwardTemplate.products = [groups.entries[entry.label] for entry in self.family.forwardTemplate.products]
 	self.family.entries = groups.entries
@@ -525,7 +524,7 @@ class SolvationKineticsGroups(Database):
 	Database.__init__(self, entries, top, label, name, shortDesc, longDesc)
 
     def __repr__(self):
-	return '<SolvationKineticsGroups "{0}:>'.format(self.label)
+	return '<SolvationKineticsGroups {0}:>'.format(self.label)
 
     def loadEntry(self, index, label, group, correction, reference=None, referenceType='', shortDesc='', longDesc=''):
         if group[0:3].upper() == 'OR{' or group[0:4].upper() == 'AND{' or group[0:7].upper() == 'NOT OR{' or group[0:8].upper() == 'NOT AND{':
