@@ -9,7 +9,6 @@ from rmgpy.data.rmg import RMGDatabase
 from copy import copy, deepcopy
 from rmgpy.data.base import LogicOr
 from rmgpy.molecule import Group
-
 import nose
 import nose.tools
 
@@ -74,7 +73,28 @@ class TestDatabase():  # cannot inherit from unittest.TestCase if we want to use
                 test.description = test_name
                 self.compat_func_name = test_name
                 yield test, depository.label
-        
+           
+            if family.solvationCorrections.family:   
+                group = family.solvationCorrections.groups
+                group_name = "water"
+                test = lambda x: self.general_checkNodesFoundInTree(group_name, group)
+                test_name = "Solvation kinetic groups {0}: nodes are in the tree with proper parents?".format(group_name)
+                test.description = test_name
+                self.compat_func_name = test_name
+                yield test, group_name
+
+                test = lambda x: self.general_checkGroupsNonidentical(group_name, group)
+                test_name = "Solvation kinetic groups {0}: nodes are nonidentical?".format(group_name)
+                test.description = test_name
+                self.compat_func_name = test_name
+                yield test, group_name
+
+                test = lambda x: self.general_checkChildParentRelationships(group_name, group)
+                test_name = "Solvation kinetic groups {0}: parent-child relationships are correct?".format(group_name)
+                test.description = test_name
+                self.compat_func_name = test_name
+                yield test, group_name
+                
         for library_name, library in self.database.kinetics.libraries.iteritems():
             
             test = lambda x: self.kinetics_checkAdjlistsNonidentical(library)
@@ -122,7 +142,7 @@ class TestDatabase():  # cannot inherit from unittest.TestCase if we want to use
             test.description = test_name
             self.compat_func_name = test_name
             yield test, group_name
-            
+
     def test_statmech(self):
         for group_name, group in self.database.statmech.groups.iteritems():
             test = lambda x: self.general_checkNodesFoundInTree(group_name, group)
