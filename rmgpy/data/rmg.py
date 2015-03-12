@@ -41,7 +41,7 @@ from thermo import ThermoDatabase
 from transport import TransportDatabase
 from rmgpy.data.kinetics.database import KineticsDatabase
 from statmech import StatmechDatabase
-from solvation import SolvationDatabase
+from solvation import SolvationDatabase, SolvationKinetics
 
 from rmgpy.scoop_framework.util import get, broadcast
 
