@@ -410,42 +410,6 @@ class QMMolecule:
         "The total number of attempts to try"
         return 2 * len(self.keywords)
     
-    def setOutputDirectory(self, outputDirectory):
-        """
-        Set up the fileStore and scratchDirectory if not already done.
-        """
-        subPath = os.path.join('Species', self.uniqueID, self.settings.method)
-        subStrings = ['Species', self.settings.method]
-        
-        setFileStore = True
-        setScratch = True
-        if self.settings.fileStore:
-            if not self.settings.fileStore.endswith(subPath):
-                currDir = self.settings.fileStore
-                if not all(x in currDir for x in subStrings):
-                    self.settings.fileStore = os.path.join(self.settings.fileStore, subPath)
-                else:
-                    self.settings.fileStore = os.path.join(self.settings.fileStore.split('/Species')[0], subPath)
-                logging.info("Setting the quantum mechanics fileStore to {0}".format(self.settings.fileStore))
-            setFileStore = False 
-        
-        if self.settings.scratchDirectory:
-            if not self.settings.scratchDirectory.endswith(subPath):
-                currDir = self.settings.scratchDirectory
-                if not all(x in currDir for x in subStrings):
-                    self.settings.scratchDirectory = os.path.join(self.settings.scratchDirectory, subPath)
-                else:
-                    self.settings.scratchDirectory = os.path.join(self.settings.scratchDirectory.split('/Species')[0], subPath)
-                logging.info("Setting the quantum mechanics fileStore to {0}".format(self.settings.scratchDirectory)) 
-            setScratch = False
-                    
-        if setFileStore:
-            self.settings.fileStore = os.path.join(outputDirectory, subPath)
-            logging.info("Setting the quantum mechanics fileStore to {0}".format(self.settings.fileStore))
-        if setScratch:
-            self.settings.scratchDirectory = os.path.join(outputDirectory, subPath)
-            logging.info("Setting the quantum mechanics fileStore to {0}".format(self.settings.scratchDirectory))            
-    
     def initialize(self):
         """
         Do any startup tasks.
