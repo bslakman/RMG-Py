@@ -56,7 +56,7 @@ class QMSettings():
     """
     def __init__(self,
                  software = None,
-                 method = None,
+                 method = 'pm3',
                  fileStore = None,
                  scratchDirectory = None,
                  onlyCyclics = True,
@@ -64,8 +64,14 @@ class QMSettings():
                  ):
         self.software = software
         self.method = method
-        self.fileStore = fileStore
-        self.scratchDirectory = scratchDirectory
+        if fileStore:
+            self.fileStore = fileStore
+        else:
+            self.fileStore = None
+        if scratchDirectory:
+            self.scratchDirectory = scratchDirectory
+        else:
+            self.scratchDirectory = None
         self.onlyCyclics = onlyCyclics
         self.maxRadicalNumber = maxRadicalNumber
         
@@ -131,22 +137,12 @@ class QMCalculator():
         else:
             raise Exception("Specify a molecule OR a reaction for QM calculations.")
         
-        setFileStore = True
-        setScratch = True
-        if self.settings.fileStore:
-            if self.settings.fileStore.endswith(subPath):
-                setFileStore = False
-        
-        if self.settings.scratchDirectory:
-            if self.settings.scratchDirectory.endswith(subPath):
-                setScratch = False
-                
-        if setFileStore:
-            self.settings.fileStore = os.path.join(outputDirectory, 'QMfiles', subPath)
+        if not self.settings.fileStore:
+            self.settings.fileStore = os.path.abspath(os.path.join(outputDirectory, 'QMfiles'))
             logging.info("Setting the quantum mechanics fileStore to {0}".format(self.settings.fileStore))
-        if setScratch:
-            self.settings.scratchDirectory = os.path.join(outputDirectory, 'QMscratch', subPath)
-            logging.info("Setting the quantum mechanics fileStore to {0}".format(self.settings.scratchDirectory))            
+        if not self.settings.scratchDirectory:
+            self.settings.scratchDirectory = os.path.abspath(os.path.join(outputDirectory, 'QMscratch'))
+            logging.info("Setting the quantum mechanics scratchDirectory to {0}".format(self.settings.scratchDirectory))
     
     def initialize(self):
         """
