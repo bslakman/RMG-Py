@@ -47,6 +47,7 @@ cdef class Reaction:
     cdef public bint duplicate
     cdef public int degeneracy
     cdef public list pairs
+    cdef public bint surface
     
     cpdef bint isIsomerization(self)
 
