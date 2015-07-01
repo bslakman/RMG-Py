@@ -63,6 +63,8 @@ cdef class HeterogeneousReactor(ReactionSystem):
     cdef public double sensitivityThreshold
     # surface parameters
     cdef public double vacantSiteFraction
+    cdef public double areaToVolRatio
+    cdef public double A
 
     cdef public numpy.ndarray reactantIndices
     cdef public numpy.ndarray productIndices
@@ -72,8 +74,9 @@ cdef class HeterogeneousReactor(ReactionSystem):
     cdef public numpy.ndarray equilibriumConstants
     cdef public numpy.ndarray networkLeakCoefficients
     cdef public numpy.ndarray jacobianMatrix
+    cdef public numpy.ndarray surfaceReactions
 
-    def __init__(self, T, P, initialMoleFractions, termination, sensitiveSpecies=None, sensitivityThreshold=1e-3, vacantSiteFraction=0.5):
+    def __init__(self, T, P, initialMoleFractions, termination, areaToVolRatio, sensitiveSpecies=None, sensitivityThreshold=1e-3, vacantSiteFraction=0.5):
         ReactionSystem.__init__(self, termination)
         self.T = Quantity(T)
         self.P = Quantity(P)
@@ -84,7 +87,9 @@ cdef class HeterogeneousReactor(ReactionSystem):
         self.sensitiveSpecies = sensitiveSpecies
         self.sensitivityThreshold = sensitivityThreshold
         self.vacantSiteFraction = vacantSiteFraction # set as dummy value, for now?
-        
+        self.areaToVolRatio = areaToVolRatio
+        self.A = 0
+
         # These are helper variables used within the solver
         self.reactantIndices = None
         self.productIndices = None
@@ -94,6 +99,8 @@ cdef class HeterogeneousReactor(ReactionSystem):
         self.equilibriumConstants = None
         self.networkLeakCoefficients = None
         self.jacobianMatrix = None
+
+        self.surfaceReactions = None
         
     def convertInitialKeysToSpeciesObjects(self, speciesDict):
         """
@@ -115,7 +122,6 @@ cdef class HeterogeneousReactor(ReactionSystem):
         # This initializes the attributes declared in the base class
         ReactionSystem.initializeModel(self, coreSpecies, coreReactions, edgeSpecies, edgeReactions, pdepNetworks, atol, rtol, sensitivity, sens_atol, sens_rtol)
 
-	# Should we have coreGasReactions coreSurfaceReactions separate?
         cdef int numCoreSpecies, numCoreReactions, numEdgeSpecies, numEdgeReactions, numPdepNetworks
         cdef int i, j, l, index, neq
         cdef double V
@@ -151,10 +157,13 @@ cdef class HeterogeneousReactor(ReactionSystem):
         forwardRateCoefficients = numpy.zeros((numCoreReactions + numEdgeReactions), numpy.float64)
         reverseRateCoefficients = numpy.zeros_like(forwardRateCoefficients)
         equilibriumConstants = numpy.zeros_like(forwardRateCoefficients)
+        surfaceReactions = numpy.zeros_like(forwardRateCoefficients, dtype=bool) 
         for rxnList in [coreReactions, edgeReactions]:
             for rxn in rxnList:
                 j = reactionIndex[rxn]
                 forwardRateCoefficients[j] = rxn.getRateCoefficient(self.T.value_si, self.P.value_si)
+                if rxn.isSurfaceReaction:
+                    surfaceReactions[j] = True
                 if rxn.reversible:
                     equilibriumConstants[j] = rxn.getEquilibriumConstant(self.T.value_si)
                     reverseRateCoefficients[j] = forwardRateCoefficients[j] / equilibriumConstants[j]
@@ -180,7 +189,8 @@ cdef class HeterogeneousReactor(ReactionSystem):
         self.equilibriumConstants = equilibriumConstants
         self.networkIndices = networkIndices
         self.networkLeakCoefficients = networkLeakCoefficients
-        
+        self.surfaceReactions = surfaceReactions
+
         # Set initial conditions
         t0 = 0.0
         # Compute number of equations    
@@ -216,6 +226,9 @@ cdef class HeterogeneousReactor(ReactionSystem):
         for j in range(numCoreSpecies):
             self.coreSpeciesConcentrations[j] = y0[j] / V
         
+        # Compute area with user-specified ratio
+        self.A = self.V * self.areaToVolRatio        
+
         # Initialize the model
         dydt0 = - self.residual(t0, y0, numpy.zeros(neq, numpy.float64), senpar)[0]
         DASx.initialize(self, t0, y0, dydt0, senpar, atol_array, rtol_array)
@@ -246,6 +259,8 @@ cdef class HeterogeneousReactor(ReactionSystem):
         inet = self.networkIndices
         knet = self.networkLeakCoefficients
 
+        surf = self.surfaceReactions
+
         numCoreSpecies = len(self.coreSpeciesRates)
         numCoreReactions = len(self.coreReactionRates)
         numEdgeSpecies = len(self.edgeSpeciesRates)
@@ -273,7 +288,8 @@ cdef class HeterogeneousReactor(ReactionSystem):
             coreSpeciesConcentrations[j] = C[j]
         
         # For heterogeneous reactions we need different equations
-        # reactionRate = k * C[ir[j,0]] * vacantSiteFraction # k should include sticking coeff?
+            # if self.surfaceReactions[j]: 
+                # reactionRate = k * C[ir[j,0]] * vacantSiteFraction # k should include sticking coeff?
 
         for j in range(ir.shape[0]):
             k = kf[j]
@@ -300,54 +316,64 @@ cdef class HeterogeneousReactor(ReactionSystem):
                 # The reaction is a core reaction
                 coreReactionRates[j] = reactionRate
 
-                # Need to convert the surface reaction rates to a per volume basis
+                # Need to convert the gas and surface reaction rates to molar
+                # flow rate by multiplying by area or volume accordingly
+                if self.surfaceReactions[j]: 
+                   molarFlowRate = reactionRate * self.A 
+                else:
+                   molarFlowRate = reactionRate * self.V
 
                 # Add/substract the total reaction rate from each species rate
                 # Since it's a core reaction we know that all of its reactants
                 # and products are core species
                 first = ir[j,0]
-                coreSpeciesRates[first] -= reactionRate
+                coreSpeciesRates[first] -= molarFlowRate
                 second = ir[j,1]
                 if second != -1:
-                    coreSpeciesRates[second] -= reactionRate
+                    coreSpeciesRates[second] -= molarFlowRate
                     third = ir[j,2]
                     if third != -1:
-                        coreSpeciesRates[third] -= reactionRate
+                        coreSpeciesRates[third] -= molarFlowRate
                 first = ip[j,0]
-                coreSpeciesRates[first] += reactionRate
+                coreSpeciesRates[first] += molarFlowRate 
                 second = ip[j,1]
                 if second != -1:
-                    coreSpeciesRates[second] += reactionRate
+                    coreSpeciesRates[second] += molarFlowRate
                     third = ip[j,2]
                     if third != -1:
-                        coreSpeciesRates[third] += reactionRate
+                        coreSpeciesRates[third] += molarFlowRate 
 
             else:
                 # The reaction is an edge reaction
                 edgeReactionRates[j-numCoreReactions] = reactionRate
 
-                # Need to convert the surface reaction rates to a per volume basis
+                # Need to convert the gas and surface reaction rates to molar
+                # flow rate by multiplying by area or volume accordingly
+                if self.surfaceReactions[j]: 
+                   molarFlowRate = reactionRate * self.A 
+                else:
+                   molarFlowRate = reactionRate * self.V
                 
                 # Add/substract the total reaction rate from each species rate
                 # Since it's an edge reaction its reactants and products could
                 # be either core or edge species
                 # We're only interested in the edge species
                 first = ir[j,0]
-                if first >= numCoreSpecies: edgeSpeciesRates[first-numCoreSpecies] -= reactionRate
+                if first >= numCoreSpecies: edgeSpeciesRates[first-numCoreSpecies] -= molarFlowRate 
                 second = ir[j,1]
                 if second != -1:
-                    if second >= numCoreSpecies: edgeSpeciesRates[second-numCoreSpecies] -= reactionRate
+                    if second >= numCoreSpecies: edgeSpeciesRates[second-numCoreSpecies] -=  molarFlowRate 
                     third = ir[j,2]
                     if third != -1:
-                        if third >= numCoreSpecies: edgeSpeciesRates[third-numCoreSpecies] -= reactionRate
+                        if third >= numCoreSpecies: edgeSpeciesRates[third-numCoreSpecies] -= molarFlowRate 
                 first = ip[j,0]
-                if first >= numCoreSpecies: edgeSpeciesRates[first-numCoreSpecies] += reactionRate
+                if first >= numCoreSpecies: edgeSpeciesRates[first-numCoreSpecies] += molarFlowRate
                 second = ip[j,1]
                 if second != -1:
-                    if second >= numCoreSpecies: edgeSpeciesRates[second-numCoreSpecies] += reactionRate
+                    if second >= numCoreSpecies: edgeSpeciesRates[second-numCoreSpecies] += molarFlowRate 
                     third = ip[j,2]
                     if third != -1:
-                        if third >= numCoreSpecies: edgeSpeciesRates[third-numCoreSpecies] += reactionRate
+                        if third >= numCoreSpecies: edgeSpeciesRates[third-numCoreSpecies] += molarFlowRate 
 
         for j in range(inet.shape[0]):
             k = knet[j]
@@ -366,9 +392,7 @@ cdef class HeterogeneousReactor(ReactionSystem):
         self.edgeReactionRates = edgeReactionRates
         self.networkLeakRates = networkLeakRates
 
-        # Or, instead of converting the rates to per volume basis, now we multiply the surface ones by an area
-        res = coreSpeciesRates * V 
-        
+        res = coreSpeciesRates # Already in units of moles/time
         
         if self.sensitivity:
             delta = numpy.zeros(len(y), numpy.float64)
