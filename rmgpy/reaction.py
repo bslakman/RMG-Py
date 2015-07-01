@@ -86,6 +86,7 @@ class Reaction:
     `duplicate`         ``bool``                    ``True`` if the reaction is known to be a duplicate, ``False`` if not
     `degeneracy`        :class:`double`             The reaction path degeneracy for the reaction
     `pairs`             ``list``                    Reactant-product pairings to use in converting reaction flux to species flux
+    `surface`           ``bool``                    ``True`` if the reaction occurs on a surface i.e. heterogeneous
     =================== =========================== ============================
     
     """
@@ -100,7 +101,8 @@ class Reaction:
                  transitionState=None,
                  duplicate=False,
                  degeneracy=1,
-                 pairs=None
+                 pairs=None,
+                 surface=False
                  ):
         self.index = index
         self.label = label
@@ -112,6 +114,7 @@ class Reaction:
         self.duplicate = duplicate
         self.degeneracy = degeneracy
         self.pairs = pairs
+        self.surface = surface
         
         if diffusionLimiter.enabled:
             self.__k_effective_cache = {}
@@ -132,6 +135,7 @@ class Reaction:
         if self.duplicate: string += 'duplicate={0}, '.format(self.duplicate)
         if self.degeneracy != 1: string += 'degeneracy={0:d}, '.format(self.degeneracy)
         if self.pairs is not None: string += 'pairs={0}, '.format(self.pairs)
+        if self.surface: string += 'surface={0}, '.format(self.surface)
         string = string[:-2] + ')'
         return string
 
@@ -156,7 +160,8 @@ class Reaction:
                            self.transitionState,
                            self.duplicate,
                            self.degeneracy,
-                           self.pairs
+                           self.pairs,
+                           self.surface
                            ))
 
     def toChemkin(self, speciesList=None, kinetics=True):
@@ -187,7 +192,10 @@ class Reaction:
             adjlist = species.molecule[0].toAdjacencyList(removeH=False)
             url += "product{0}={1}__".format(i+1, re.sub('\s+', '%20', adjlist.replace('\n', ';')))
         return url.strip('_')
-        
+    
+    def isSurfaceReaction(self):
+        return self.surface
+    
     def isIsomerization(self):
         """
         Return ``True`` if the reaction represents an isomerization reaction
