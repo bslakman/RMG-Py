@@ -39,6 +39,7 @@ from rmgpy.quantity import Quantity
 from rmgpy.solver.base import TerminationTime, TerminationConversion
 from rmgpy.solver.simple import SimpleReactor
 from rmgpy.solver.liquid import LiquidReactor
+from rmgpy.solver.heterogeneous import HeterogeneousReactor
 
 from model import CoreEdgeReactionModel
 
@@ -148,7 +149,37 @@ def simpleReactor(temperature,
     rmg.reactionSystems.append(system)
 
 
-# Reaction systems
+def heterogeneousReactor(temperature, pressure, initialMoleFractions, areaToVolRatio, terminationConversion=None, terminationTime=None, sensitivity=None, sensitivityThreshold=1e-3, vacantSiteFraction=0.5):
+    logging.debug('Found HeterogeneousReactor reaction system')
+    
+    for value in initialMoleFractions.values():
+        if value < 0:
+            raise InputError('Initial mole fractions cannot be negative.')
+    if sum(initialMoleFractions.values()) != 1:
+        logging.warning('Initial mole fractions do not sum to one; renormalizing.')
+        for spec in initialMoleFractions:
+            initialMoleFractions[spec] /= sum(initialMoleFractions.values())
+
+    T = Quantity(temperature)
+    P = Quantity(pressure)
+    
+    termination = []
+    if terminationConversion is not None:
+        for spec, conv in terminationConversion.iteritems():
+            termination.append(TerminationConversion(speciesDict[spec], conv))
+    if terminationTime is not None:
+        termination.append(TerminationTime(Quantity(terminationTime)))
+    if len(termination) == 0:
+        raise InputError('No termination conditions specified for reaction system #{0}.'.format(len(rmg.reactionSystems)+2))
+    
+    sensitiveSpecies = []
+    if sensitivity:
+        for spec in sensitivity:
+            sensitiveSpecies.append(speciesDict[spec])
+    system = HeterogeneousReactor(T, P, initialMoleFractions, termination, areaToVolRatio, sensitiveSpecies, sensitivityThreshold, vacantSiteFraction)
+    rmg.reactionSystems.append(system)
+
+
 def liquidReactor(temperature,
                   initialConcentrations,
                   terminationConversion=None,
@@ -333,6 +364,7 @@ def readInputFile(path, rmg0):
         'adjacencyList': adjacencyList,
         'simpleReactor': simpleReactor,
         'liquidReactor': liquidReactor,
+        'heterogeneousReactor': heterogeneousReactor,
         'simulator': simulator,
         'solvation': solvation,
         'model': model,
@@ -450,7 +482,10 @@ def saveInputFile(path, rmg):
             for species, conc in system.initialConcentrations.iteritems():
                 f.write('        "{0!s}": ({1:g},"{2!s}"),\n'.format(species.label,conc.getValue(),conc.units))
         else:
-            f.write('simpleReactor(\n')
+            if system.areaToVolRatio:
+                f.write('heterogeneousReactor(\n')
+            else: 
+                f.write('simpleReactor(\n')
             f.write('    temperature = ({0:g},"{1!s}"),\n'.format(system.T.getValue(),system.T.units))
             # Convert the pressure from SI pascal units to bar here
             # Do something more fancy later for converting to user's desired units for both T and P..
