@@ -71,18 +71,10 @@ class QMSettings():
             self.scratchDirectory = None
         self.onlyCyclics = onlyCyclics
         self.maxRadicalNumber = maxRadicalNumber
-        
-        if os.sys.platform == 'win32':
-            symmetryPath = os.path.join(rmgpy.getPath(),'..', 'bin', 'symmetry.exe')
-            # If symmetry is not installed in the bin folder, assume it is available on the path somewhere
-            if not os.path.exists(symmetryPath):
-                symmetryPath = 'symmetry.exe' 
-        else:
-            symmetryPath = os.path.join(rmgpy.getPath(),'..', 'bin', 'symmetry')
-            if not os.path.exists(symmetryPath):
-                symmetryPath = 'symmetry'
-        self.symmetryPath = symmetryPath
-
+    
+        RMGpy_path = os.getenv('RMGpy') or os.path.normpath(os.path.join(rmgpy.getPath(),'..'))
+        self.RMG_bin_path = os.path.join(RMGpy_path, 'bin')
+    
     def checkAllSet(self):
         """
         Check that all the required settings are set.
