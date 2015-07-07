@@ -20,7 +20,7 @@ before_install:
   - cd RMG-Py
 
 install:
-  - conda install -c rmg rmg rmgdatabase
+  - conda install --yes -c rmg rmg rmgdatabase
 
 script: 
   - nosetests --nocapture --nologcapture --all-modules --verbose --with-coverage --cover-inclusive --cover-package=rmgpy --cover-erase --cover-html --cover-html-dir=testing/coverage --exe rmgpy
