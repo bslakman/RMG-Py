@@ -110,12 +110,12 @@ eg3: all
 	coverage run rmg.py -p testing/liquid_phase/input.py
 	coverage report
 	coverage html
-eg5: all
-	mkdir -p testing/heptane-eg5
-	rm -rf testing/heptane-eg5/*
-	cp examples/rmg/heptane-eg5/input.py testing/heptane-eg5/input.py
-	@ echo "Running heptane-eg5 example."
-	python rmg.py -q testing/heptane-eg5/input.py
+eg4: all
+	mkdir -p testing/thermoEstimator
+	rm -rf testing/thermoEstimator/*
+	cp examples/thermoEstimator/input.py testing/thermoEstimator/input.py
+	@ echo "Running thermo data estimator example. This tests QM."
+	python thermoEstimator.py testing/thermoEstimator/input.py
 
 eg6: all
 	mkdir -p testing/ethane-oxidation
