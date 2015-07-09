@@ -29,5 +29,5 @@ install:
 script: 
   - make test
   - make eg1
-  - make eg5
+  - make eg4
   - make eg6
