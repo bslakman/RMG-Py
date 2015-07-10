@@ -197,7 +197,10 @@ class SymmetryJob:
         except OSError, e:
             logging.error(e)
             raise Exception('Running symmetry on the point group calculation has failed.  Please check if symmetry program is installed on your system in RMG-Py/bin/symmetry or on your path.')
-        pp = Popen(command, stdout=PIPE, stderr=PIPE)
+            pp = Popen(command, stdout=PIPE, stderr=PIPE)
+        except OSError, e:
+            logging.error(e)
+            raise Exception('Running symmetry on the point group calculation has failed.  Please check if symmetry program is installed on your system in RMG-Py/bin/symmetry or on your path.')
         stdout, stderr = pp.communicate()
         if stderr:
             logging.error("Error message from SYMMETRY calculation:")
@@ -236,7 +239,7 @@ class SymmetryJob:
             """
             TODO only *nix case works!
             """
-            command = [self.executable_path]
+            command = [self.settings.symmetryPath]
             command.extend(arguments)
             command.append(self.inputFilePath)
 
