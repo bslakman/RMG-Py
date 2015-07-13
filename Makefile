@@ -144,7 +144,7 @@ else
 	rm -rf testing/thermoEstimator/*
 	cp examples/thermoEstimator/input.py testing/thermoEstimator/input.py
 	@ echo "Running thermo data estimator example. This tests QM."
-	python thermoEstimator.py testing/thermoEstimator/input.py
+	python scripts/thermoEstimator.py testing/thermoEstimator/input.py
 
 eg6: all
 	mkdir -p testing/ethane-oxidation
