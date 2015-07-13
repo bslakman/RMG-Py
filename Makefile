@@ -40,6 +40,7 @@ cantherm:
 	python setup.py build_ext cantherm --build-lib . --build-temp build --pyrex-c-in-temp
 
 bin/symmetry:
+	mkdir -p bin
 	$(MAKE) -C external/symmetry install
 
 QM: bin/symmetry
