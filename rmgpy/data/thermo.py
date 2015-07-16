@@ -273,6 +273,79 @@ class ThermoLibrary(Database):
         return processOldLibraryEntry(data)
 
 ################################################################################
+class SurfaceThermoData():
+    """
+    Stores Abraham parameters to characterize a solute
+    """
+    def __init__(self, Qss=None):
+        self.Qss= Qss
+        self.comment = comment
+    def __repr__(self):
+        return "SurfaceThermoData(Qss={0}})".format(self.Qss)
+
+
+class SurfaceThermoLibrary(Database):
+    """
+    A class for working with a RMG thermodynamics library that contains chemisorption energies.
+    """
+
+    def __init__(self, label='', name='',solvent=None, shortDesc='', longDesc=''):
+        Database.__init__(self, label=label, name=name, shortDesc=shortDesc, longDesc=longDesc)
+
+    def loadEntry(self,
+                  index,
+                  label,
+                  molecule,
+                  thermo,
+                  reference=None,
+                  referenceType='',
+                  shortDesc='',
+                  longDesc='',
+                  ):
+        
+        molecule = Molecule().fromAdjacencyList(molecule)
+        
+        # Internal checks for adding entry to the thermo library
+        if label in self.entries.keys():
+            raise DatabaseError('Found a duplicate molecule with label {0} in the thermo library.  Please correct your library.'.format(label))
+        
+        for entry in self.entries.values():
+            if molecule.isIsomorphic(entry.item):
+                if molecule.multiplicity == entry.item.multiplicity:
+                    raise DatabaseError('Adjacency list and multiplicity of {0} matches that of existing molecule {1} in thermo library.  Please correct your library.'.format(label, entry.label))
+        
+        self.entries[label] = Entry(
+            index = index,
+            label = label,
+            item = molecule,
+            data = thermo,
+            reference = reference,
+            referenceType = referenceType,
+            shortDesc = shortDesc,
+            longDesc = longDesc.strip(),
+        )
+
+    def saveEntry(self, f, entry):
+        """
+        Write the given `entry` in the thermo database to the file object `f`.
+        """
+        return saveEntry(f, entry)
+
+    def generateOldLibraryEntry(self, data):
+        """
+        Return a list of values used to save entries to the old-style RMG
+        thermo database based on the thermodynamics object `data`.
+        """
+        return generateOldLibraryEntry(data)
+
+    def processOldLibraryEntry(self, data):
+        """
+        Process a list of parameters `data` as read from an old-style RMG
+        thermo database, returning the corresponding thermodynamics object.
+        """
+        return processOldLibraryEntry(data)
+
+################################################################################
 
 class ThermoGroups(Database):
     """
@@ -345,6 +418,7 @@ class ThermoDatabase(object):
             'Wilhoit': Wilhoit,
             'NASAPolynomial': NASAPolynomial,
             'NASA': NASA,
+            'SurfaceThermoData': SurfaceThermoData
         }
         self.global_context = {}
 
