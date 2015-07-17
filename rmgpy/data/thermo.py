@@ -277,7 +277,7 @@ class SurfaceThermoData():
     """
     Stores Abraham parameters to characterize a solute
     """
-    def __init__(self, Qss=None):
+    def __init__(self, Qss=None, comment=None):
         self.Qss= Qss
         self.comment = comment
     def __repr__(self):
