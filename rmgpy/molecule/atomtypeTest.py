@@ -181,7 +181,6 @@ class TestGetAtomType(unittest.TestCase):
                                                      9  H u0 p0 {3,S}
                                                      10 H u0 p0 {4,S}
                                                      11 H u0 p0 {5,S}''')
-        
     
     def atomType(self, mol, atomID):
         atom = mol.atoms[atomID]
