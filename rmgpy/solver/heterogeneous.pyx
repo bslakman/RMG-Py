@@ -287,9 +287,7 @@ cdef class HeterogeneousReactor(ReactionSystem):
             C[j] = y[j] / V
             coreSpeciesConcentrations[j] = C[j]
         
-        # For heterogeneous reactions we need different equations
-            # if self.surfaceReactions[j]: 
-                # reactionRate = k * C[ir[j,0]] * vacantSiteFraction # k should include sticking coeff?
+
 
         for j in range(ir.shape[0]):
             k = kf[j]
@@ -311,6 +309,9 @@ cdef class HeterogeneousReactor(ReactionSystem):
             else: # three reactants!! (really?)
                 reactionRate -= k * C[ip[j,0]] * C[ip[j,1]] * C[ip[j,2]]
 
+            if self.surfaceReactions[j]: 
+               reactionRate = reactionRate * self.vacantSiteFraction # k should include sticking coeff?
+            
             # Set the reaction and species rates
             if j < numCoreReactions:
                 # The reaction is a core reaction
