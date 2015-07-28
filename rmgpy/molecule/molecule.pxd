@@ -124,6 +124,8 @@ cdef class Molecule(Graph):
     cpdef bint hasBond(self, Atom atom1, Atom atom2)
     
     cpdef bint isSurfaceMolecule(self)
+    
+    cpdef bint isSurfaceSite(self)
 
     cpdef removeAtom(self, Atom atom)
 

@@ -690,6 +690,10 @@ class Molecule(Graph):
                 return True
         return False
 
+    def isSurfaceSite(self):
+        "Returns ``True`` iff the molecule is nothing but a surface site 'X'."
+        return (len(self.atoms) == 1 and self.atoms[0].symbol == 'X')
+
     def removeAtom(self, atom):
         """
         Remove `atom` and all bonds associated with it from the graph. Does
