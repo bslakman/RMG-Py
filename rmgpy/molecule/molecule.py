@@ -1527,7 +1527,10 @@ class Molecule(Graph):
         rdAtomIndices = {} # dictionary of RDKit atom indices
         rdkitmol = Chem.rdchem.EditableMol(Chem.rdchem.Mol())
         for index, atom in enumerate(self.vertices):
-            rdAtom = Chem.rdchem.Atom(atom.element.symbol)
+            if atom.element.symbol == 'X':
+                rdAtom = Chem.rdchem.Atom('Si')
+            else:
+                rdAtom = Chem.rdchem.Atom(atom.element.symbol)
             rdAtom.SetNumRadicalElectrons(atom.radicalElectrons)
             if atom.element.symbol == 'C' and atom.lonePairs == 1 and self.multiplicity == 1: rdAtom.SetNumRadicalElectrons(2)
             rdkitmol.AddAtom(rdAtom)
