@@ -78,12 +78,15 @@ class Element:
         self.symbol = intern(symbol)
         self.name = name
         self.mass = mass
-        try:
-            self.covRadius = _rdkit_periodic_table.GetRcovalent(symbol)
-        except RuntimeError:
-            import logging
-            logging.error("RDkit doesn't know element {0} so covalent radius unknown".format(symbol))
+        if symbol == 'X':
             self.covRadius = 0
+        else:
+            try:
+                self.covRadius = _rdkit_periodic_table.GetRcovalent(symbol)
+            except RuntimeError:
+                import logging
+                logging.error("RDkit doesn't know element {0} so covalent radius unknown".format(symbol))
+                self.covRadius = 0
     
     def __str__(self):
         """
@@ -141,6 +144,8 @@ def getElement(value):
 # The elements are sorted by increasing atomic number and grouped by period
 # Recommended IUPAC nomenclature is used throughout (including 'aluminium' and 
 # 'caesium')
+
+X = Element(0, 'X', 'surface_site' , 0.0)
 
 # Period 1
 #: Hydrogen
@@ -271,6 +276,7 @@ Cn = Element(112, 'Cn', 'copernicum'    , 0.285)
 
 # A list of the elements, sorted by increasing atomic number
 elementList = [
+    X,
     H, He,
     Li, Be, B, C, N, O, F, Ne,
     Na, Mg, Al, Si, P, S, Cl, Ar,
