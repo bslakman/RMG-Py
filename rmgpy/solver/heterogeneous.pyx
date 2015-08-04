@@ -50,20 +50,19 @@ from rmgpy.quantity cimport ScalarQuantity, ArrayQuantity
 cdef class HeterogeneousReactor(ReactionSystem):
     """
     A reaction system consisting of an isothermal, isobaric batch
-    reactor. These assumptions allow for a number of optimizations that enable
-    this solver to complete very rapidly, even for large kinetic models.
+    reactor.
     """
 
     cdef public ScalarQuantity T
     cdef public ScalarQuantity P
     cdef public double V
-    cdef public bint constantVolume
-    cdef public dict initialMoleFractions
+    cdef public dict initialGasMoleFractions
     cdef public list sensitiveSpecies
     cdef public double sensitivityThreshold
     # surface parameters
-    cdef public double vacantSiteFraction
-    cdef public double areaToVolRatio
+    cdef public dict initialSurfaceCoverages
+    cdef public ScalarQuantity surfaceSiteDensity 
+    cdef public ScalarQuantity areaToVolRatio
     cdef public double A
 
     cdef public numpy.ndarray reactantIndices
@@ -76,17 +75,18 @@ cdef class HeterogeneousReactor(ReactionSystem):
     cdef public numpy.ndarray jacobianMatrix
     cdef public numpy.ndarray surfaceReactions
 
-    def __init__(self, T, P, initialMoleFractions, termination, areaToVolRatio, sensitiveSpecies=None, sensitivityThreshold=1e-3, vacantSiteFraction=0.5):
+    def __init__(self, T, P, initialGasMoleFractions, initialSurfaceCoverages, areaToVolRatio, surfaceSiteDensity, termination, sensitiveSpecies=None, sensitivityThreshold=1e-3):
         ReactionSystem.__init__(self, termination)
         self.T = Quantity(T)
         self.P = Quantity(P)
-        self.initialMoleFractions = initialMoleFractions
+        self.initialGasMoleFractions = initialGasMoleFractions
+        self.initialSurfaceCoverages = initialSurfaceCoverages
+        self.surfaceSiteDensity = surfaceSiteDensity
 
         self.V = 0 # will be set in initializeModel
         self.constantVolume = False
         self.sensitiveSpecies = sensitiveSpecies
         self.sensitivityThreshold = sensitivityThreshold
-        self.vacantSiteFraction = vacantSiteFraction # set as dummy value, for now?
         self.areaToVolRatio = areaToVolRatio
         self.A = 0
 
@@ -107,11 +107,16 @@ cdef class HeterogeneousReactor(ReactionSystem):
         Convert the initialMoleFractions dictionary from species names into species objects,
         using the given dictionary of species.
         """
-        initialMoleFractions = {}
-        for label, moleFrac in self.initialMoleFractions.iteritems():
-            initialMoleFractions[speciesDict[label]] = moleFrac
-        self.initialMoleFractions = initialMoleFractions
+        initialGasMoleFractions = {}
+        for label, moleFrac in self.initialGasMoleFractions.iteritems():
+            initialGasMoleFractions[speciesDict[label]] = moleFrac
+        self.initialGasMoleFractions = initialMoleFractions
 
+        initialSurfaceCoverages = {}
+        for label, surfaceCoverage in self.initialSurfaceCoverages.iteritems():
+            initialSurfaceCoverages[speciesDict[label]] = surfaceCoverage
+        self.initialSurfaceCoverages = initialSurfaceCoverages
+    
     cpdef initializeModel(self, list coreSpecies, list coreReactions, list edgeSpecies, list edgeReactions, list pdepNetworks=None, atol=1e-16, rtol=1e-8, sensitivity=False, sens_atol=1e-6, sens_rtol=1e-4):
         """
         Initialize a simulation of the simple reactor using the provided kinetic
