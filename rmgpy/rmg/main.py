@@ -220,8 +220,12 @@ class RMG:
                 assert (reactionSystem.T.value_si > self.pressureDependence.Tmin.value_si), "Reaction system T is below pressureDependence range."
                 assert (reactionSystem.P.value_si < self.pressureDependence.Pmax.value_si), "Reaction system P is above pressureDependence range."
                 assert (reactionSystem.P.value_si > self.pressureDependence.Pmin.value_si), "Reaction system P is below pressureDependence range."
-            assert any([not s.reactive for s in reactionSystem.initialMoleFractions.keys()]), \
-                "Pressure Dependence calculations require at least one inert (nonreacting) species for the bath gas."
+            if hasattr(reactionSystem, "areaToVolRatio"):
+                assert any([not s.reactive for s in reactionSystem.initialGasMoleFractions.keys()]), \
+                    "Pressure Dependence calculations require at least one inert (nonreacting) species for the bath gas."
+            else:
+                assert any([not s.reactive for s in reactionSystem.initialMoleFractions.keys()]), \
+                    "Pressure Dependence calculations require at least one inert (nonreacting) species for the bath gas."
 
     def checkLibraries(self):
         """
