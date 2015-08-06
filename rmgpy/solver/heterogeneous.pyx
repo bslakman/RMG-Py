@@ -56,6 +56,7 @@ cdef class HeterogeneousReactor(ReactionSystem):
     cdef public ScalarQuantity T
     cdef public ScalarQuantity P
     cdef public double V
+    cdef public bint constantVolume
     cdef public dict initialGasMoleFractions
     cdef public list sensitiveSpecies
     cdef public double sensitivityThreshold
@@ -74,6 +75,7 @@ cdef class HeterogeneousReactor(ReactionSystem):
     cdef public numpy.ndarray networkLeakCoefficients
     cdef public numpy.ndarray jacobianMatrix
     cdef public numpy.ndarray surfaceReactions
+    cdef public numpy.ndarray surfaceSpecies
 
     def __init__(self, T, P, initialGasMoleFractions, initialSurfaceCoverages, areaToVolRatio, surfaceSiteDensity, termination, sensitiveSpecies=None, sensitivityThreshold=1e-3):
         ReactionSystem.__init__(self, termination)
@@ -101,7 +103,8 @@ cdef class HeterogeneousReactor(ReactionSystem):
         self.jacobianMatrix = None
 
         self.surfaceReactions = None
-        
+        self.surfaceSpecies = None
+ 
     def convertInitialKeysToSpeciesObjects(self, speciesDict):
         """
         Convert the initialMoleFractions dictionary from species names into species objects,
@@ -142,7 +145,7 @@ cdef class HeterogeneousReactor(ReactionSystem):
         numEdgeReactions = len(edgeReactions)
         numPdepNetworks = len(pdepNetworks)
 
-        surfaceSpecies = numpy.zeros_like(numCoreSpecies, dtype=bool)
+        surfaceSpecies = numpy.zeros_like(coreSpecies, dtype=bool)
         areToVolRatio_si = self.areaToVolRatio.value_si # 1/m
         
         # Assign an index to each species (core first, then edge)
@@ -239,7 +242,7 @@ cdef class HeterogeneousReactor(ReactionSystem):
         
         # Compute area with user-specified ratio
         self.A = self.V * areaToVolRatio_si
-        totalSurfaceSites = V * areaToVolRatio_si * self.surfaceSiteDensity # total surface sites in reactor
+        totalSurfaceSites = V * areaToVolRatio_si * self.surfaceSiteDensity.value_si # total surface sites in reactor
         
         for spec, coverage in self.initialSurfaceCoverages.iteritems():
             y0[speciesIndex[spec]] = totalSurfaceSites * coverage
@@ -300,7 +303,7 @@ cdef class HeterogeneousReactor(ReactionSystem):
         edgeReactionRates = numpy.zeros_like(self.edgeReactionRates)
         networkLeakRates = numpy.zeros_like(self.networkLeakRates)
 
-        areaToVolRatio_si = self.areToVolRatio.value_si
+        areaToVolRatio_si = self.areaToVolRatio.value_si
         C = numpy.zeros_like(self.coreSpeciesConcentrations)
         
         # Use ideal gas law to compute volume
@@ -336,9 +339,6 @@ cdef class HeterogeneousReactor(ReactionSystem):
             else: # three reactants!! (really?)
                 reactionRate -= k * C[ip[j,0]] * C[ip[j,1]] * C[ip[j,2]]
 
-            if self.surfaceReactions[j]: 
-               reactionRate = reactionRate * self.vacantSiteFraction # k should include sticking coeff?
-            
             # Set the reaction and species rates
             if j < numCoreReactions:
                 # The reaction is a core reaction
