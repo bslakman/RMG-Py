@@ -964,6 +964,7 @@ class Reaction:
         other.duplicate = self.duplicate
         other.degeneracy = self.degeneracy
         other.pairs = deepcopy(self.pairs)
+        other.surface = self.surface
         
         return other
 

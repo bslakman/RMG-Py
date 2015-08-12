@@ -268,6 +268,7 @@ class KineticsLibrary(Database):
                   degeneracy=1,
                   duplicate=False,
                   reversible=True,
+                  surface=False,
                   reference=None,
                   referenceType='',
                   shortDesc='',
@@ -283,7 +284,7 @@ class KineticsLibrary(Database):
 #        if product3 is not None: products.append(Species(label=product3.strip().splitlines()[0].strip(), molecule=[Molecule().fromAdjacencyList(product3)]))
 #        
         # Make a blank reaction
-        rxn = Reaction(reactants=[], products=[], degeneracy=degeneracy, duplicate=duplicate, reversible=reversible)
+        rxn = Reaction(reactants=[], products=[], degeneracy=degeneracy, duplicate=duplicate, reversible=reversible, surface=surface)
 #        if not rxn.isBalanced():
 #            raise DatabaseError('Reaction {0} in kinetics library {1} was not balanced! Please reformulate.'.format(rxn, self.label))        
 #        label = str(rxn)
