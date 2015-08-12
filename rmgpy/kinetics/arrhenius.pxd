@@ -110,3 +110,8 @@ cdef class MultiPDepArrhenius(PDepKineticsModel):
     cpdef bint isIdenticalTo(self, KineticsModel otherKinetics) except -2
     
     cpdef changeRate(self, double factor)
+
+################################################################################
+
+cdef class SurfaceArrhenius(Arrhenius):
+    pass 
