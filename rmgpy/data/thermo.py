@@ -42,10 +42,11 @@ from base import Database, Entry, makeLogicNode, DatabaseError
 
 import rmgpy.constants as constants
 from rmgpy.thermo import NASAPolynomial, NASA, ThermoData, Wilhoit
+from rmgpy.thermo.thermodata import SurfaceThermoData
 from rmgpy.molecule import Molecule, Atom, Bond, Group
 import rmgpy.molecule
 from rmgpy.species import Species
-
+from rmgpy.quantity import Quantity
 
 #: This dictionary is used to add multiplicity to species label
 _multiplicity_labels = {1:'S',2:'D',3:'T',4:'Q',5:'V',}
@@ -273,23 +274,12 @@ class ThermoLibrary(Database):
         return processOldLibraryEntry(data)
 
 ################################################################################
-class SurfaceThermoData():
-    """
-    Stores Abraham parameters to characterize a solute
-    """
-    def __init__(self, Qss=None, comment=None):
-        self.Qss= Qss
-        self.comment = comment
-    def __repr__(self):
-        return "SurfaceThermoData(Qss={0}})".format(self.Qss)
-
-
 class SurfaceThermoLibrary(Database):
     """
     A class for working with a RMG thermodynamics library that contains chemisorption energies.
     """
 
-    def __init__(self, label='', name='',solvent=None, shortDesc='', longDesc=''):
+    def __init__(self, label='', name='', shortDesc='', longDesc=''):
         Database.__init__(self, label=label, name=name, shortDesc=shortDesc, longDesc=longDesc)
 
     def loadEntry(self,
@@ -344,6 +334,18 @@ class SurfaceThermoLibrary(Database):
         thermo database, returning the corresponding thermodynamics object.
         """
         return processOldLibraryEntry(data)
+
+    def getSurfaceThermoData(self, species):
+        """
+        Return the surface thermo data (H_ads, S_ads) corresponding to a given
+        :class:`Species` object `species` from the surface library (1, for now). 
+        If no match is found in the library, ``None`` is returned. 
+        """
+        for label, entry in self.entries.iteritems():
+            for molecule in species.molecule:
+                if molecule.isIsomorphic(entry.item) and entry.data is not None:
+                    return entry.data
+        return None
 
 ################################################################################
 
@@ -411,6 +413,7 @@ class ThermoDatabase(object):
     def __init__(self):
         self.depository = {}
         self.libraries = {}
+        self.surfaceLibrary = None
         self.groups = {}
         self.libraryOrder = []
         self.local_context = {
@@ -474,12 +477,19 @@ class ThermoDatabase(object):
             for f in files:
                 name, ext = os.path.splitext(f)
                 if ext.lower() == '.py' and (libraries is None or name in libraries):
-                    logging.info('Loading thermodynamics library from {0} in {1}...'.format(f, root))
-                    library = ThermoLibrary()
-                    library.load(os.path.join(root, f), self.local_context, self.global_context)
-                    library.label = os.path.splitext(f)[0]
-                    self.libraries[library.label] = library
-                    self.libraryOrder.append(library.label)
+                    if name == 'SurfaceLibrary':
+                        logging.info('Loading surface thermo library from {0} in {1}...'.format(f, root))
+                        library = SurfaceThermoLibrary()
+                        library.load(os.path.join(root, f), self.local_context, self.global_context)
+                        library.label = os.path.splitext(f)[0]
+                        self.surfaceLibrary = library
+                    else:
+                        logging.info('Loading thermodynamics library from {0} in {1}...'.format(f, root))
+                        library = ThermoLibrary()
+                        library.load(os.path.join(root, f), self.local_context, self.global_context)
+                        library.label = os.path.splitext(f)[0]
+                        self.libraries[library.label] = library
+                        self.libraryOrder.append(library.label)
         if libraries is not None:
             self.libraryOrder = libraries
 
@@ -503,7 +513,7 @@ class ThermoDatabase(object):
         Save the thermo database to the given `path` on disk, where `path`
         points to the top-level folder of the thermo database.
         """
-        path = os.path.abspath(path)
+        path = os.pathabspath(path)
         if not os.path.exists(path): os.mkdir(path)
         self.saveDepository(os.path.join(path, 'depository'))
         self.saveLibraries(os.path.join(path, 'libraries'))
@@ -706,6 +716,14 @@ class ThermoDatabase(object):
         """
         
         thermo0 = None
+      
+        # Remove the surface site, but not if it's just an empty one
+        if species.isSurfaceSpecies() and not species.molecule[0].isSurfaceSite(): 
+            adsorbate = deepcopy(species.molecule[0])
+            adsorbate.removeSurfaceSite()
+            adsorbateSpecies = Species(molecule=[adsorbate])
+            # Get the thermo data for the gas phase species; corrected in rmgpy.rmg.model.Species
+            return self.getThermoData(adsorbateSpecies)
         
         thermo0 = self.getThermoDataFromLibraries(species)
         
@@ -860,6 +878,8 @@ class ThermoDatabase(object):
         # If gas phase simulation libraryList = self.libraryOrder (just like before modifications) and they are all gas phase, already checked by checkLibrairies function in database.load()
         # Check the libraries in order; return the first successful match
         for label in libraryList:
+            # Don't try to get thermo data for a gas phase species from the surface thermo library
+            if label == "SurfaceLibrary": break 
             thermoData = self.getThermoDataFromLibrary(species, self.libraries[label])
             if thermoData is not None:
                 assert len(thermoData) == 3, "thermoData should be a tuple at this point"

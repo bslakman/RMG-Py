@@ -35,6 +35,15 @@ cimport rmgpy.constants as constants
 import rmgpy.quantity as quantity
 
 ################################################################################
+cdef class SurfaceThermoData(object):
+    """
+    Stores enthalpy and entropy of adsorption.
+    """
+    def __init__(self, H_ads=None, S_ads=None, comment=''):
+        self.H_ads = quantity.Quantity(H_ads)
+        self.S_ads = quantity.Quantity(S_ads)
+    def __repr__(self):
+        return "SurfaceThermoData(H_ads={0}, S_ads={1})".format(self.H_ads, self.S_ads)
 
 cdef class ThermoData(HeatCapacityModel):
     """

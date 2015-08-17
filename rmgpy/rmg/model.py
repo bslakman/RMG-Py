@@ -43,6 +43,7 @@ import rmgpy.constants as constants
 from rmgpy.quantity import Quantity
 import rmgpy.species
 from rmgpy.thermo import Wilhoit, NASA, ThermoData
+from rmgpy.thermo.thermodata import SurfaceThermoData
 from rmgpy.pdep import SingleExponentialDown
 from rmgpy.statmech import  Conformer
 
@@ -132,7 +133,16 @@ class Species(rmgpy.species.Species):
             # correction is added to the entropy and enthalpy
             wilhoit.S0.value_si = (wilhoit.S0.value_si + solvation_correction.entropy)
             wilhoit.H0.value_si = (wilhoit.H0.value_si + solvation_correction.enthalpy)
-            
+        
+        # Add on surface correction
+        if self.isSurfaceSpecies():
+            surfaceThermoData = database.thermo.surfaceLibrary.getSurfaceThermoData(self)
+            # If found, correction is added to the entropy and enthalpy
+            if surfaceThermoData is not None:
+                wilhoit.S0.value_si = (wilhoit.S0.value_si + surfaceThermoData.S_ads.value_si)
+                wilhoit.H0.value_si = (wilhoit.H0.value_si + surfaceThermoData.H_ads.value_si)
+           
+    
         # Compute E0 by extrapolation to 0 K
         if self.conformer is None:
             self.conformer = Conformer()

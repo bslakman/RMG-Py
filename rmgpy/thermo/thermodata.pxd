@@ -51,3 +51,7 @@ cdef class ThermoData(HeatCapacityModel):
     cpdef Wilhoit toWilhoit(self)
 
     cpdef NASA toNASA(self, double Tmin, double Tmax, double Tint, bint fixedTint=?, bint weighting=?, int continuity=?)
+
+cdef class SurfaceThermoData(object):
+    
+    cdef public ScalarQuantity H_ads, S_ads

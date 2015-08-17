@@ -2154,3 +2154,25 @@ class Molecule(Graph):
         self.multiplicity = 1
 
         return added
+    
+    def removeSurfaceSite(self):
+        """
+        Change self molecule object to just the molecule that is adsorbed, not including the surface site.
+        """
+        cython.declare(atom=Atom, i=int, bond=Bond)
+        added = {}
+        for atom in self.atoms:
+            if atom.element.symbol == 'X': 
+                for atom2 in self.atoms:
+                    if self.hasBond(atom, atom2):
+                        bond = self.getBond(atom, atom2) 
+                        self.removeBond(bond)
+                        atom2.incrementRadical()
+                self.removeAtom(atom)
+                  
+        # Update the atom types of the saturated structure (not sure why
+        self.updateConnectivityValues()
+        self.sortVertices()
+        self.updateAtomTypes()
+        self.updateLonePairs()
+        self.updateMultiplicity()
