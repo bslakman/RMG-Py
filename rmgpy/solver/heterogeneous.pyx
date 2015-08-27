@@ -146,7 +146,7 @@ cdef class HeterogeneousReactor(ReactionSystem):
         numPdepNetworks = len(pdepNetworks)
 
         surfaceSpecies = numpy.zeros_like(coreSpecies, dtype=bool)
-        areToVolRatio_si = self.areaToVolRatio.value_si # 1/m
+        areaToVolRatio_si = self.areaToVolRatio.value_si # 1/m
         
         # Assign an index to each species (core first, then edge)
         speciesIndex = {}
@@ -174,8 +174,8 @@ cdef class HeterogeneousReactor(ReactionSystem):
         for rxnList in [coreReactions, edgeReactions]:
             for rxn in rxnList:
                 j = reactionIndex[rxn]
-                forwardRateCoefficients[j] = rxn.getRateCoefficient(self.T.value_si, self.P.value_si)
-                if rxn.isSurfaceReaction:
+                forwardRateCoefficients[j] = rxn.getRateCoefficient(self.T.value_si, self.P.value_si) # Either in volume or area units
+                if rxn.surface:
                     surfaceReactions[j] = True
                 if rxn.reversible:
                     equilibriumConstants[j] = rxn.getEquilibriumConstant(self.T.value_si)
@@ -237,8 +237,8 @@ cdef class HeterogeneousReactor(ReactionSystem):
         # Use ideal gas law to compute volume
         V = constants.R * self.T.value_si * numpy.sum(y0[:numCoreSpecies]) / self.P.value_si
         self.V = V # volume in m^3
-        for j in range(numCoreSpecies):
-            self.coreSpeciesConcentrations[j] = y0[j] / V
+        #for j in range(numCoreSpecies):
+        #    self.coreSpeciesConcentrations[j] = y0[j] / V
         
         # Compute area with user-specified ratio
         self.A = self.V * areaToVolRatio_si
@@ -312,10 +312,10 @@ cdef class HeterogeneousReactor(ReactionSystem):
 
         for j in range(numCoreSpecies):
             if surfaceSpecies[j]:
-                C[j] = (y[j] / V) / areaToVolRatio_si 
+                C[j] = (y[j] / V) / areaToVolRatio_si #moles/m^2
             else:
-                C[j] = y[j] / V
-            coreSpeciesConcentrations[j] = C[j]
+                C[j] = y[j] / V #moles/m^3
+            coreSpeciesConcentrations[j] = C[j] 
         
 
 
@@ -342,34 +342,34 @@ cdef class HeterogeneousReactor(ReactionSystem):
             # Set the reaction and species rates
             if j < numCoreReactions:
                 # The reaction is a core reaction
-                coreReactionRates[j] = reactionRate
+                coreReactionRates[j] = reactionRate # either mol/m^2/s or mol/m^3/s
 
                 # Need to convert the gas and surface reaction rates to molar
                 # flow rate by multiplying by area or volume accordingly
                 if self.surfaceReactions[j]: 
-                   molarFlowRate = reactionRate * self.A 
+                   molarRate = reactionRate * self.A 
                 else:
-                   molarFlowRate = reactionRate * self.V
+                   molarRate = reactionRate * self.V
 
                 # Add/substract the total reaction rate from each species rate
                 # Since it's a core reaction we know that all of its reactants
                 # and products are core species
                 first = ir[j,0]
-                coreSpeciesRates[first] -= molarFlowRate
+                coreSpeciesRates[first] -= molarRate
                 second = ir[j,1]
                 if second != -1:
-                    coreSpeciesRates[second] -= molarFlowRate
+                    coreSpeciesRates[second] -= molarRate
                     third = ir[j,2]
                     if third != -1:
-                        coreSpeciesRates[third] -= molarFlowRate
+                        coreSpeciesRates[third] -= molarRate
                 first = ip[j,0]
-                coreSpeciesRates[first] += molarFlowRate 
+                coreSpeciesRates[first] += molarRate 
                 second = ip[j,1]
                 if second != -1:
-                    coreSpeciesRates[second] += molarFlowRate
+                    coreSpeciesRates[second] += molarRate
                     third = ip[j,2]
                     if third != -1:
-                        coreSpeciesRates[third] += molarFlowRate 
+                        coreSpeciesRates[third] += molarRate 
 
             else:
                 # The reaction is an edge reaction
@@ -378,30 +378,30 @@ cdef class HeterogeneousReactor(ReactionSystem):
                 # Need to convert the gas and surface reaction rates to molar
                 # flow rate by multiplying by area or volume accordingly
                 if self.surfaceReactions[j]: 
-                   molarFlowRate = reactionRate * self.A 
+                   molarRate = reactionRate * self.A 
                 else:
-                   molarFlowRate = reactionRate * self.V
+                   molarRate = reactionRate * self.V
                 
                 # Add/substract the total reaction rate from each species rate
                 # Since it's an edge reaction its reactants and products could
                 # be either core or edge species
                 # We're only interested in the edge species
                 first = ir[j,0]
-                if first >= numCoreSpecies: edgeSpeciesRates[first-numCoreSpecies] -= molarFlowRate 
+                if first >= numCoreSpecies: edgeSpeciesRates[first-numCoreSpecies] -= molarRate 
                 second = ir[j,1]
                 if second != -1:
-                    if second >= numCoreSpecies: edgeSpeciesRates[second-numCoreSpecies] -=  molarFlowRate 
+                    if second >= numCoreSpecies: edgeSpeciesRates[second-numCoreSpecies] -=  molarRate 
                     third = ir[j,2]
                     if third != -1:
-                        if third >= numCoreSpecies: edgeSpeciesRates[third-numCoreSpecies] -= molarFlowRate 
+                        if third >= numCoreSpecies: edgeSpeciesRates[third-numCoreSpecies] -= molarRate 
                 first = ip[j,0]
-                if first >= numCoreSpecies: edgeSpeciesRates[first-numCoreSpecies] += molarFlowRate
+                if first >= numCoreSpecies: edgeSpeciesRates[first-numCoreSpecies] += molarRate
                 second = ip[j,1]
                 if second != -1:
-                    if second >= numCoreSpecies: edgeSpeciesRates[second-numCoreSpecies] += molarFlowRate 
+                    if second >= numCoreSpecies: edgeSpeciesRates[second-numCoreSpecies] += molarRate 
                     third = ip[j,2]
                     if third != -1:
-                        if third >= numCoreSpecies: edgeSpeciesRates[third-numCoreSpecies] += molarFlowRate 
+                        if third >= numCoreSpecies: edgeSpeciesRates[third-numCoreSpecies] += molarRate 
 
         for j in range(inet.shape[0]):
             k = knet[j]
