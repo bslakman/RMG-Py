@@ -159,7 +159,7 @@ def heterogeneousReactor(temperature, pressure, initialGasMoleFractions, initial
             raise InputError('Initial mole fractions cannot be negative.')
     if sum(initialGasMoleFractions.values()) != 1:
         logging.warning('Initial mole fractions do not sum to one; renormalizing.')
-        for spec in initialMGasoleFractions:
+        for spec in initialGasMoleFractions:
             initialGasMoleFractions[spec] /= sum(initialGasMoleFractions.values())
 
     T = Quantity(temperature)
