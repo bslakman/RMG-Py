@@ -37,6 +37,28 @@ class PseudoSpecies:
     def isIsomorphic(self, other):
         return self.label.lower() == other.label.lower()
 
+#class TestSurfaceReactions(unittest.TestCase):
+#    """
+#    Tests some functions relating to surface reactions. Right now, just testing
+#    the isSurfaceReaction() function
+#    """
+#    def testIsSurfaceReaction(self):
+#        H2 = Species(
+#            molecule=[Molecule().fromAdjacencyList("""
+#                1 H u0 p0 {2,S}
+#                2 H u0 p0 {1,S}
+#                """)])
+#
+#        X = Species(
+#            molecule=[Molecule().fromAdjacencyList("""
+#                1 X u0 p0
+#                """)])
+#        
+#        self.assertTrue(rxn.isSurfaceReaction())
+#
+#    def testIsGasPhaseReaction(self):
+#        self.assertFalse(rxn.isSurfaceReaction())
+
 class TestReactionIsomorphism(unittest.TestCase):
     """
     Contains unit tests of the isomorphism testing of the  Reaction class.
