@@ -592,7 +592,7 @@ class ModelMatcher():
                                  ('Glarborg/C3', False),
                                  ('Glarborg/highP', False),
                                  ('GRI-Mech3.0', False), ]
-
+        rmg.solvent = 'dodecane'
         rmgpy.rmg.input.rmg = rmg  # put it in this scope so these functions can modify it
 
         if args.pdep:
