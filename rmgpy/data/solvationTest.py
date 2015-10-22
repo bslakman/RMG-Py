@@ -8,7 +8,7 @@ from external.wip import work_in_progress
 from rmgpy import settings
 from rmgpy.molecule import Molecule
 from rmgpy.species import Species
-from rmgpy.data.solvation import DatabaseError, SoluteData, SolvationDatabase
+from rmgpy.data.solvation import DatabaseError, SoluteData, SolvationDatabase, SolvationKinetics
 
 ###################################################
 
@@ -17,10 +17,22 @@ class TestSoluteDatabase(TestCase):
     def setUp(self):
         self.database = SolvationDatabase()
         self.database.load(os.path.join(settings['database.directory'], 'solvation'))
-    
+        self.barrierDatabase = SolvationKinetics()
+        self.barrierDatabase.load(os.path.join(settings['database.directory'], 'kinetics', 'families', 'H_Abstraction'), None, None)
+
     def runTest(self):
         pass
     
+    
+    def testBarrierCorrection(self):
+        "Test we can get the delta Ea for a solvated reaction"
+        r1 = Species(molecule=[Molecule(SMILES='C')]) # methane
+        r2 = Species(molecule=[Molecule(SMILES='[OH]')]) # OH
+        p1 = Species(molecule=[Molecule(SMILES='[CH3]')]) # methyl
+        p2 = Species(molecule=[Molecule(SMILES='O')]) # water
+        reaction = Reaction(reactants=[r1,r2], products=[p1,p2])
+        barrierCorrection = self.barrierDatabase.estimateBarrierCorrection(reaction)
+        
     def testSoluteLibrary(self):
         "Test we can obtain solute parameters from a library"
         species = Species(molecule=[Molecule(SMILES='COC=O')]) #methyl formate - we know this is in the solute library
