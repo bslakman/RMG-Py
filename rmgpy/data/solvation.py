@@ -43,7 +43,7 @@ from copy import copy, deepcopy
 from base import *
 
 import rmgpy.constants as constants
-from rmgpy.molecule import Molecule, Atom, Bond, Group
+from rmgpy.molecule import Molecule, Atom, Bond, Group, atomTypes
 from rmgpy.reaction import Reaction, ReactionError
 from rmgpy.species import Species
 ################################################################################
@@ -156,7 +156,7 @@ class BarrierCorrection():
     """
     Stores information about the correction to the energy between a reactant and its transition states.
     """
-    def __init_(self, correction=None):
+    def __init__(self, correction):
 	self.correction = correction
 	self.comment = u''
 
@@ -456,7 +456,7 @@ class SolvationKinetics(Database):
     def __init__(self):
 	self.groups = None
 	self.family = None
-	self.category = 'water' # for now, it's the only one we have
+	self.category = 'n-octane' 
     
     def load(self, path, local_context, global_context):
 	if local_context is None: local_context = {}
@@ -472,7 +472,7 @@ class SolvationKinetics(Database):
 	logging.debug("Loading solvation kinetics groups from {0}".format(fpath))
 	groups = SolvationKineticsGroups(label='{0}/solvationGroups'.format(path.split('/')[-1]))
 	groups.load(fpath, local_context, global_context)
-        
+       
 	self.family.forwardTemplate.reactants = [groups.entries[entry.label] for entry in self.family.forwardTemplate.reactants]
 	self.family.forwardTemplate.products = [groups.entries[entry.label] for entry in self.family.forwardTemplate.products]
 	self.family.entries = groups.entries
