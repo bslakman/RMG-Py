@@ -607,22 +607,23 @@ class KineticsFamily(Database):
             self.depositories.append(depository)
        
 	# Load solvation kinetic database for this family if it exists
-        if os.path.exists(os.path.join(path, 'water/solvationGroups.py')):
-            logging.debug("Loading solvation kinetic corrections for {0}".format(path))
-            self.solvationCorrections.family = KineticsFamily(  entries=None,
-                                                        top=None,
-                                                        label=self.label,
-                                                        name=self.name,
-                                                        reverse='',
-                                                        shortDesc='',
-                                                        longDesc='',
-                                                        forwardTemplate=self.forwardTemplate.copy(),
-                                                        forwardRecipe=self.forwardRecipe,
-                                                        reverseTemplate=None,
-                                                        reverseRecipe=None,
-                                                        forbidden=None
-                                                        )
-	    self.solvationCorrections.load(path, local_context, global_context)
+        for subdir, dirs, files in os.walk(path):
+            if os.path.exists(os.path.join(path, subdir, 'solvationGroups.py')):
+                logging.debug("Loading solvation kinetic corrections for {0}/{1}".format(path, subdir))
+                self.solvationCorrections.family = KineticsFamily(  entries=None,
+                                                            top=None,
+                                                            label=self.label,
+                                                            name=self.name,
+                                                            reverse='',
+                                                            shortDesc='',
+                                                            longDesc='',
+                                                            forwardTemplate=self.forwardTemplate.copy(),
+                                                            forwardRecipe=self.forwardRecipe,
+                                                            reverseTemplate=None,
+                                                            reverseRecipe=None,
+                                                            forbidden=None
+                                                            )
+	        self.solvationCorrections.load(path, local_context, global_context)
 
             
     def loadTemplate(self, reactants, products, ownReverse=False):
