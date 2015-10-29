@@ -587,7 +587,7 @@ class ModelMatcher():
                                'DFT_QCI_thermo',
                                'CBS_QB3_1dHR',
                                'GRI-Mech3.0', ]
-        rmg.kineticsFamilies = ['H_Abstraction', 'R_Recombination', 'Disproportionation', 'intra_H_migration']
+        rmg.kineticsFamilies = ['H_Abstraction', 'R_Recombination', 'Disproportionation', 'intra_H_migration', 'intra_OH_migration', 'Cyclic_Ether_Formation', 'R_Addition_MultipleBond']
         rmg.reactionLibraries = [('KlippensteinH2O2', False),
                                  ('Glarborg/C3', False),
                                  ('Glarborg/highP', False),
