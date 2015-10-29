@@ -9,7 +9,8 @@ from rmgpy import settings
 from rmgpy.molecule import Molecule
 from rmgpy.species import Species
 from rmgpy.data.solvation import DatabaseError, SoluteData, SolvationDatabase, SolvationKinetics
-
+from rmgpy.data.kinetics.database import KineticsDatabase
+from rmgpy.reaction import *
 ###################################################
 
 class TestSoluteDatabase(TestCase):
@@ -18,6 +19,9 @@ class TestSoluteDatabase(TestCase):
         self.database = SolvationDatabase()
         self.database.load(os.path.join(settings['database.directory'], 'solvation'))
         self.barrierDatabase = SolvationKinetics()
+        self.kineticsDatabase = KineticsDatabase()
+        self.kineticsDatabase.load(os.path.join(settings['database.directory'], 'kinetics'), families=['H_Abstraction'], libraries=[])
+        self.barrierDatabase.family = self.kineticsDatabase.families['H_Abstraction']
         self.barrierDatabase.load(os.path.join(settings['database.directory'], 'kinetics', 'families', 'H_Abstraction'), None, None)
 
     def runTest(self):
@@ -26,13 +30,40 @@ class TestSoluteDatabase(TestCase):
     
     def testBarrierCorrection(self):
         "Test we can get the delta Ea for a solvated reaction"
-        r1 = Species(molecule=[Molecule(SMILES='C')]) # methane
-        r2 = Species(molecule=[Molecule(SMILES='[OH]')]) # OH
-        p1 = Species(molecule=[Molecule(SMILES='[CH3]')]) # methyl
-        p2 = Species(molecule=[Molecule(SMILES='O')]) # water
+        r1 = Species(molecule=[Molecule().fromAdjacencyList(
+"""
+1 *1 C u0 p0 c0 {2,S} {3,S} {4,S} {5,S}
+2 *2 H u0 p0 c0 {1,S}
+3    H u0 p0 c0 {1,S}
+4    H u0 p0 c0 {1,S}
+5    H u0 p0 c0 {1,S}
+"""
+        )]) # methane
+        r2 = Species(molecule=[Molecule().fromAdjacencyList(
+"""
+1 *3 O u1 p2 c0 {2,S}
+2    H u0 p0 c0 {1,S}
+"""
+        )]) # OH
+        p1 = Species(molecule=[Molecule().fromAdjacencyList(
+"""
+1 *3 C u1 p0 c0 {2,S} {3,S} {4,S}
+2    H u0 p0 c0 {1,S}
+3    H u0 p0 c0 {1,S}
+4    H u0 p0 c0 {1,S}
+"""
+        )]) # methyl
+        p2 = Species(molecule=[Molecule().fromAdjacencyList(
+"""
+1 *1 O u0 p2 c0 {2,S} {3,S}
+2 *2 H u0 p0 c0 {1,S}
+3    H u0 p0 c0 {1,S}
+"""
+        )]) # water
         reaction = Reaction(reactants=[r1,r2], products=[p1,p2])
         barrierCorrection = self.barrierDatabase.estimateBarrierCorrection(reaction)
-        
+        self.assertAlmostEqual(barrierCorrection.correction.value_si/1000, 0.1996, places=3)
+
     def testSoluteLibrary(self):
         "Test we can obtain solute parameters from a library"
         species = Species(molecule=[Molecule(SMILES='COC=O')]) #methyl formate - we know this is in the solute library
