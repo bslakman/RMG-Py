@@ -880,7 +880,7 @@ class SolvationKineticsGroups(Database):
         template = self.getReactionTemplate(reaction)
         referenceCorrection = self.top[0].data # or something like that
 
-        # Start with the generic barrier correction of the top-level nodes (should this just be 0 kJ/mol?)
+        # Start with the generic barrier correction of the top-level nodes
         # Make a copy so we don't modify the original
         barrierCorrection = deepcopy(referenceCorrection)
         
@@ -893,7 +893,7 @@ class SolvationKineticsGroups(Database):
                 comment_line += "{0} >> ".format(entry.label)
                 entry = entry.parent
             if entry.data.correction and entry not in self.top:
-                barrierCorrection.add(entry.data)
+                barrierCorrection.correction.value_si += entry.data.correction.value_si
                 comment_line += "{0} ({1})".format(entry.label, entry.longDesc.split('\n')[0])
             elif entry in self.top:
                 comment_line += "{0} (Top node)".format(entry.label)
@@ -933,7 +933,7 @@ class SolvationKineticsGroups(Database):
             # Initialize dictionaries of fitted group values and uncertainties
             groupValues = {}; groupUncertainties = {}; groupCounts = {}; groupComments = {}
             for entry in groupEntries:
-                groupValues[entry] = []
+                groupValues[entry] = None 
                 groupUncertainties[entry] = []
                 groupCounts[entry] = []
                 groupComments[entry.label] = set()
@@ -943,7 +943,7 @@ class SolvationKineticsGroups(Database):
 
             correction_data = []
 	    for template, correctionData in trainingSet:
-                d = correctionData
+                d = correctionData.correction.value_si
                 correction_data.append(d)
 
                 # Create every combination of each group and its ancestors with each other
@@ -1003,12 +1003,12 @@ class SolvationKineticsGroups(Database):
             # Update dictionaries of fitted group values and uncertainties
             for entry in groupEntries:
                 if entry == self.top[0]:
-                    groupValues[entry].append(x[-1])
+                    groupValues[entry]=x[-1]
                     groupUncertainties[entry].append(ci[-1])
                     groupCounts[entry].append(count[-1])
                 elif entry.label in [group.label for group in groupList]:
                     index = [group.label for group in groupList].index(entry.label)
-                    groupValues[entry].append(x[index])
+                    groupValues[entry]=x[index]
                     groupUncertainties[entry].append(ci[index])
                     groupCounts[entry].append(count[index])
                 else:
@@ -1028,11 +1028,12 @@ class SolvationKineticsGroups(Database):
                     # should be entry.*
                     shortDesc = "Fitted to {0} solvation corrections.\n".format(groupCounts[entry][0])
 		    longDesc = "\n".join(groupComments[entry.label])
-                    entry.data = CorrectionData(correction=groupValues[entry], uncertainty=uncertainties)
+                    # we don't include uncertainties for the moment (not in BarrierCorrection object)
+                    entry.data = BarrierCorrection(correction= (groupValues[entry], 'J/mol'))
                     entry.shortDesc = shortDesc
                     entry.longDesc = longDesc
                 else:
-                    entry.data = CorrectionData()
+                    entry.data = BarrierCorrection()
 
         # Add a note to the history of each changed item indicating that we've generated new group values
         import time
