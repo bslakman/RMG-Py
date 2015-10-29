@@ -106,6 +106,13 @@ def saveEntry(f, entry):
         f.write('        beta = {0!r},\n'.format(entry.data.beta))
         f.write('        eps = {0!r},\n'.format(entry.data.eps))
         f.write('    ),\n')
+    elif isinstance(entry.data, BarrierCorrection):
+        f.write('    correction = BarrierCorrection(\n')
+        if entry.data.correction is not None:
+            f.write('        correction = ({0!r}, {1!r}),\n'.format(entry.data.correction.value_si, entry.data.correction.units))
+        else:
+            f.write('        correction = None,\n')
+        f.write('    ),\n')
     elif entry.data is None:
         f.write('    solute = None,\n')
     else:
