@@ -164,7 +164,7 @@ class BarrierCorrection():
     Stores information about the correction to the energy between a reactant and its transition states.
     """
     def __init__(self, correction=None):
-	self.correction = correction
+	self.correction = quantity.Energy(correction)
 	self.comment = u''
 
 class SolventData():
