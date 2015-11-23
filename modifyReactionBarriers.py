@@ -9,11 +9,11 @@ from rmgpy.data.rmg import RMGDatabase
 from rmgpy.data.base import Database
 #########################################################
 database = Database()
-species_dict = database.getSpecies('/Users/belinda/Code/RMG-models/Liq_Fuel_Ox_2013/RMG_Dictionary.txt')
+species_dict = database.getSpecies('/home/slakman.b/Code/RMG-models/Liq_Fuel_Ox_2013/RMG_Dictionary.txt')
 
 reaction_list = []
 
-with open('/Users/belinda/Code/RMG-models/Liq_Fuel_Ox_2013/mechanism.txt', 'r') as mech_file:
+with open('/home/slakman.b/Code/RMG-models/Liq_Fuel_Ox_2013/mechanism.txt', 'r') as mech_file:
     for line in mech_file:
         if line.strip().startswith('REACTIONS'): break
     for line in mech_file:
@@ -98,9 +98,9 @@ for reaction in reaction_list:
     barrierCorrection = barrier_database.estimateBarrierCorrection(reaction)
     delEa_list.append(barrierCorrection.correction.value_si) # Value in J/mol
 
-new_mech_file = open('/Users/belinda/Code/RMG-models/Liq_Fuel_Ox_2013/mechanism_corrected.txt', 'a+')
+new_mech_file = open('/home/slakman.b/Code/RMG-models/Liq_Fuel_Ox_2013/mechanism_corrected.txt', 'a+')
 num = 0 # Count H_Abs reactions
-with open('/Users/belinda/Code/RMG-models/Liq_Fuel_Ox_2013/mechanism.txt', 'r') as mech_file:
+with open('/home/slakman.b/Code/RMG-models/Liq_Fuel_Ox_2013/mechanism.txt', 'r') as mech_file:
     # write header and species list
     for line in mech_file:
         new_mech_file.write(line)
@@ -109,51 +109,21 @@ with open('/Users/belinda/Code/RMG-models/Liq_Fuel_Ox_2013/mechanism.txt', 'r') 
     for line in mech_file:
         if 'H_Abstraction' in line:
            # get the correction, apply to appropriate place in line
-           corr = delEa_list[num]
+           corr = delEa_list[num] / 4184 # kcal/mol
+           Ea = float(line[72:77]) + corr
+           Ea_string = str(Ea)
+           # Make sure this string is 5 characters
+           if len(Ea_string) < 5:
+               i=0
+               while i < 5-len(Ea_string):
+                   Ea = Ea + " "
+                   i += 1
+           new_mech_file.write(line[:72] + str(Ea) + line[77:]) 
            num += 1
-           new_mech_file.write(line) 
         else: 
            new_mech_file.write(line)
            if line.strip().startswith('!'): break
     # write remainder of file
     for line in mech_file:
         new_mech_file.write(line)
-#self.barrierDatabase = SolvationKinetics()
-#        self.kineticsDatabase = KineticsDatabase()
-#        self.kineticsDatabase.load(os.path.join(settings['database.directory'], 'kinetics'), families=['H_Abstraction'], libraries=[])
-#        self.barrierDatabase.family = self.kineticsDatabase.families['H_Abstraction']
-#        self.barrierDatabase.load(os.path.join(settings['database.directory'], 'kinetics', 'families', 'H_Abstraction'), None, None)
-#
-#
-#        r1 = Species(molecule=[Molecule().fromAdjacencyList(
-#"""
-#1 *1 C u0 p0 c0 {2,S} {3,S} {4,S} {5,S}
-#2 *2 H u0 p0 c0 {1,S}
-#3    H u0 p0 c0 {1,S}
-#4    H u0 p0 c0 {1,S}
-#5    H u0 p0 c0 {1,S}
-#"""
-#        )]) # methane
-#        r2 = Species(molecule=[Molecule().fromAdjacencyList(
-#"""
-#1 *3 O u1 p2 c0 {2,S}
-#2    H u0 p0 c0 {1,S}
-#"""
-#        )]) # OH
-#        p1 = Species(molecule=[Molecule().fromAdjacencyList(
-#"""
-#1 *3 C u1 p0 c0 {2,S} {3,S} {4,S}
-#2    H u0 p0 c0 {1,S}
-#3    H u0 p0 c0 {1,S}
-#4    H u0 p0 c0 {1,S}
-#"""
-#        )]) # methyl
-#        p2 = Species(molecule=[Molecule().fromAdjacencyList(
-#"""
-#1 *1 O u0 p2 c0 {2,S} {3,S}
-#2 *2 H u0 p0 c0 {1,S}
-#3    H u0 p0 c0 {1,S}
-#"""
-#        )]) # water
-#        reaction = Reaction(reactants=[r1,r2], products=[p1,p2])
-#        barrierCorrection = self.barrierDatabase.estimateBarrierCorrection(reaction)
+new_mech_file.close()
