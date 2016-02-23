@@ -2,7 +2,7 @@
 import logging
 import math
 #from rmgpy.species import Species
-#from rmgpy.data.solvation import SolventData, SoluteData, SoluteGroups, SolvationDatabase
+from rmgpy.data.solvation import SolventData, SolvationDatabase, SolvationKinetics
 
 
 class LiquidKinetics():
@@ -20,10 +20,15 @@ class LiquidKinetics():
         
         gasKinetics = self.reaction.kinetics
         k = gasKinetics.getRateCoefficient(T, P=1E5)
-       
-        solvationKineticsDatabase = self.reaction.family.solvationCorrections 
-        x = solvationKineticsDatabase.estimateBarrierCorrection()
-        return k*math.exp(-x/8.314/T)
+        try: 
+            solvationKineticsDatabase = self.reaction.family.solvationCorrections 
+            print "Correcting reaction barrier for {0}".format(self.reaction)
+            x = solvationKineticsDatabase.estimateBarrierCorrection()
+            return k*math.exp(-x/8.314/T)
+      
+        except AttributeError:
+            print "Family {0} does not have a solvation kinetics database".format(self.reaction.family)
+            return k
       
         # """
         # If it is an H-abstraction reaction, correct the intrinsic rate here (best place?)
