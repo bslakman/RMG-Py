@@ -49,8 +49,9 @@ from .common import KineticsError, UndeterminableKineticsError, saveEntry
 from .depository import KineticsDepository
 from .groups import KineticsGroups
 from .rules import KineticsRules
-from rmgpy.data.solvation import SolventData, SolvationDatabase, SolvationKinetics 
 from rmgpy.kinetics.diffusionLimited import diffusionLimiter
+
+from rmgpy import settings
 ################################################################################
 
 class InvalidActionError(Exception):
@@ -357,8 +358,9 @@ class KineticsFamily(Database):
         self.depositories = []
 
 	# Database for solvation kinetic corrections
+        from rmgpy.data.solvation import SolvationKinetics
 	self.solvationCorrections = SolvationKinetics() 
-
+    
     def __repr__(self):
         return '<ReactionFamily "{0}">'.format(self.label)
 
