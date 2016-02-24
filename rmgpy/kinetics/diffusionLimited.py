@@ -1,9 +1,5 @@
-
 import logging
 import math
-#from rmgpy.species import Species
-from rmgpy.data.solvation import SolventData, SolvationDatabase, SolvationKinetics
-
 
 class LiquidKinetics():
     """
@@ -12,20 +8,21 @@ class LiquidKinetics():
     diffusionLimiter, since if solvent is present, both affect the rate.
     """
     
-    def __init__(self, reaction, solventData):
+    def __init__(self, reaction, solventData, kineticsDatabase):
         self.reaction = reaction
         self.solventData = solventData
+        self.kineticsDatabase = kineticsDatabase
     
     def correctIntrinsicRate(self, T):
         
         gasKinetics = self.reaction.kinetics
         k = gasKinetics.getRateCoefficient(T, P=1E5)
+        family = self.kineticsDatabase.families[self.reaction.family]
         try: 
-            solvationKineticsDatabase = self.reaction.family.solvationCorrections 
+            solvationKineticsDatabase = family.solvationCorrections 
             print "Correcting reaction barrier for {0}".format(self.reaction)
-            x = solvationKineticsDatabase.estimateBarrierCorrection()
+            x = solvationKineticsDatabase.estimateBarrierCorrection(self.reaction)
             return k*math.exp(-x/8.314/T)
-      
         except AttributeError:
             print "Family {0} does not have a solvation kinetics database".format(self.reaction.family)
             return k
@@ -55,12 +52,13 @@ class DiffusionLimited():
     # default is false, enabled if there is a solvent
         self.enabled = False
 
-    def enable(self, solventData, solvationDatabase, comment=''):
+    def enable(self, solventData, solvationDatabase, kineticsDatabase, comment=''):
     # diffusionLimiter is enabled if a solvent has been added to the RMG object.
         logging.info("Enabling diffusion-limited kinetics...")
         diffusionLimiter.enabled = True
         diffusionLimiter.database = solvationDatabase
         diffusionLimiter.solventData = solventData
+        diffusionLimiter.kinetics = kineticsDatabase
 
     def getSolventViscosity(self, T):
         return self.solventData.getSolventViscosity(T)
@@ -76,7 +74,7 @@ class DiffusionLimited():
         For 2<=>2 reactions, the faster direction is limited.
         For 2<=>1 or 2<=>3 reactions, the forward rate is limited.
         """
-        liquidKinetics = LiquidKinetics(reaction, self.solventData)
+        liquidKinetics = LiquidKinetics(reaction, self.solventData, self.kinetics)
         
         reactants = len(reaction.reactants)
         products = len(reaction.products)
