@@ -46,6 +46,7 @@ import rmgpy.constants as constants
 from rmgpy.molecule import Molecule, Atom, Bond, Group, atomTypes
 from rmgpy.reaction import Reaction, ReactionError
 from rmgpy.species import Species
+from rmgpy.data.kinetics.common import UndeterminableKineticsError
 ################################################################################
 
 def saveEntry(f, entry):
@@ -470,22 +471,21 @@ class SolvationKinetics(Database):
         local_context['BarrierCorrection'] = BarrierCorrection
 
         fpath = os.path.join(path, self.category, 'training/solvationReactions.py')
-
- 	depository = SolvationKineticsDepository(label='{0}/{1}/training'.format(path.split('/')[-1], self.category))
-        depository.load(fpath, local_context, global_context )
-        self.depository = depository
-
-	fpath = os.path.join(path, self.category, 'solvationGroups.py')
-	logging.debug("Loading solvation kinetics groups from {0}".format(fpath))
-	groups = SolvationKineticsGroups(label='{0}/solvationGroups'.format(path.split('/')[-1]))
-	groups.load(fpath, local_context, global_context)
-       
-	self.family.forwardTemplate.reactants = [groups.entries[entry.label] for entry in self.family.forwardTemplate.reactants]
-	self.family.forwardTemplate.products = [groups.entries[entry.label] for entry in self.family.forwardTemplate.products]
-	self.family.entries = groups.entries
-	self.family.groups = groups
-	groups.numReactants = len(self.family.forwardTemplate.reactants)
-	self.groups = groups
+        if os.path.exists(os.path.join(path, self.category)):
+            depository = SolvationKineticsDepository(label='{0}/{1}/training'.format(path.split('/')[-1], self.category))
+            depository.load(fpath, local_context, global_context )
+            self.depository = depository
+            
+            fpath = os.path.join(path, self.category, 'solvationGroups.py')
+            logging.debug("Loading solvation kinetics groups from {0}".format(fpath))
+            groups = SolvationKineticsGroups(label='{0}/solvationGroups'.format(path.split('/')[-1]))
+            groups.load(fpath, local_context, global_context)
+            self.family.forwardTemplate.reactants = [groups.entries[entry.label] for entry in self.family.forwardTemplate.reactants]
+            self.family.forwardTemplate.products = [groups.entries[entry.label] for entry in self.family.forwardTemplate.products]
+            self.family.entries = groups.entries
+            self.family.groups = groups
+            groups.numReactants = len(self.family.forwardTemplate.reactants)
+            self.groups = groups
 
     def estimateBarrierCorrection(self, reaction):
 	return self.groups.estimateCorrectionUsingGroupAdditivity(reaction)
@@ -749,7 +749,6 @@ class SolvationKineticsDepository(Database):
                   longDesc='',
                   ):
         reaction = Reaction(reactants=reactants, products=products, degeneracy=1, duplicate=False, reversible=True)
-        print reaction.reactants
         entry = Entry(
             index = index,
             item = reaction,
