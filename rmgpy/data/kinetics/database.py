@@ -189,6 +189,8 @@ class KineticsDatabase(object):
             family = KineticsFamily(label=label)
             family.load(familyPath, self.local_context, self.global_context, depositoryLabels=depositories)
             self.families[label] = family
+            # Now that the family is loaded, we can load its solvation kinetic corrections (best place?)
+            family.solvationCorrections.load(familyPath, None, None)
 
     def loadLibraries(self, path, libraries=None):
         """
