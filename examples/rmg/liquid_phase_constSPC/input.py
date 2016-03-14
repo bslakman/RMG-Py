@@ -39,7 +39,7 @@ liquidReactor(
 )
 
 solvation(
-	solvent='octane'
+	solvent='n-octane'
 )
 
 simulator(
