@@ -55,7 +55,8 @@ model(
 options(
     units='si',
     saveRestartPeriod=None,
-    generateOutputHTML=False,
+    generateOutputHTML=True,
     generatePlots=False,
+    saveEdgeSpecies=True,
     saveSimulationProfiles=True,
 )
