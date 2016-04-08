@@ -117,6 +117,7 @@ class DiffusionLimited():
         
         This is the upper limit on the rate, in the specified direction.
         (ie. forward direction if forward=True [default] or reverse if forward=False)
+        Returns the rate coefficient k_diff in m3/mol/s.
         """
         if forward:
             reacting = reaction.reactants
@@ -133,12 +134,12 @@ class DiffusionLimited():
                 logging.warning("Species didn't have soluteData.")
                 soluteData = self.database.getSoluteData(spec)
             # calculate radius with the McGowan volume and assuming sphere
-            radius = ((75*soluteData.V/3.14159/N_a)**(1/3))/100 #m
+            radius = ((75 * soluteData.V / 3.14159 / N_a) ** (1. / 3)) / 100  # m
             diff = soluteData.getStokesDiffusivity(T, self.getSolventViscosity(T))
-            radii += radius #meters
+            radii += radius  # meters
             diffusivities += diff #m^2/s
         
-        k_diff = 4*3.14159*radii*diffusivities*N_a #m3/mol-s
+        k_diff = 4 * 3.14159 * radii * diffusivities * N_a  # m3/mol/s
         return k_diff
 
 
