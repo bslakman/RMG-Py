@@ -20,11 +20,11 @@ class LiquidKinetics():
         family = self.kineticsDatabase.families[self.reaction.family]
         try: 
             solvationKineticsDatabase = family.solvationCorrections 
-            print "Correcting reaction barrier for {0}".format(self.reaction)
             x = solvationKineticsDatabase.estimateBarrierCorrection(self.reaction)
+            print "Correcting reaction barrier for {0}".format(self.reaction)
             return k*math.exp(-x/8.314/T)
         except AttributeError:
-            print "Family {0} does not have a solvation kinetics database".format(self.reaction.family)
+            #print "Family {0} does not have a solvation kinetics database".format(self.reaction.family)
             return k
       
         # """
