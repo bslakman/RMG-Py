@@ -29,7 +29,7 @@ class TestSoluteDatabase(TestCase):
     
     
     def testBarrierCorrection(self):
-        "Test we can get the delta Ea for a solvated reaction"
+        "Test we can get the correct delta Ea for a solvated reaction"
         r1 = Species(molecule=[Molecule().fromAdjacencyList(
 """
 1 *1 C u0 p0 c0 {2,S} {3,S} {4,S} {5,S}
@@ -63,6 +63,89 @@ class TestSoluteDatabase(TestCase):
         reaction = Reaction(reactants=[r1,r2], products=[p1,p2])
         barrierCorrection = self.barrierDatabase.estimateBarrierCorrection(reaction)
         self.assertAlmostEqual(barrierCorrection.correction.value_si/1000, 0.1996, places=3)
+
+    def lookupBarrierCorrectionfor(self):
+        "Test we can obtain the delta Ea for a solvated reaction"
+        r1 = Species(molecule=[Molecule().fromAdjacencyList(
+"""
+1  C u0 p0 c0 {2,S} {9,S} {10,S} {11,S}
+2  C u0 p0 c0 {1,S} {3,S} {12,S} {13,S}
+3  *1 C u0 p0 c0 {2,S} {4,S} {14,S} {15,S}
+4  C u0 p0 c0 {3,S} {5,S} {16,S} {17,S}
+5  C u0 p0 c0 {4,S} {6,S} {18,S} {19,S}
+6  C u0 p0 c0 {5,S} {7,S} {20,S} {21,S}
+7  C u0 p0 c0 {6,S} {8,S} {22,S} {23,S}
+8  C u0 p0 c0 {7,S} {24,S} {25,S} {26,S}
+9  H u0 p0 c0 {1,S}
+10 H u0 p0 c0 {1,S}
+11 H u0 p0 c0 {1,S}
+12 H u0 p0 c0 {2,S}
+13 H u0 p0 c0 {2,S}
+14 *2 H u0 p0 c0 {3,S}
+15 H u0 p0 c0 {3,S}
+16 H u0 p0 c0 {4,S}
+17 H u0 p0 c0 {4,S}
+18 H u0 p0 c0 {5,S}
+19 H u0 p0 c0 {5,S}
+20 H u0 p0 c0 {6,S}
+21 H u0 p0 c0 {6,S}
+22 H u0 p0 c0 {7,S}
+23 H u0 p0 c0 {7,S}
+24 H u0 p0 c0 {8,S}
+25 H u0 p0 c0 {8,S}
+26 H u0 p0 c0 {8,S}
+"""
+        )]) # octane
+        r2 = Species(molecule=[Molecule().fromAdjacencyList(
+"""
+multiplicity 3
+1 *3 O u1 p2 c0 {2,S}
+2 O u1 p2 c0 {1,S}
+"""
+        )]) # O2
+        p1 = Species(molecule=[Molecule().fromAdjacencyList(
+"""
+multiplicity 2
+1  C u0 p0 c0 {2,S} {10,S} {11,S} {12,S}
+2  C u0 p0 c0 {1,S} {3,S} {13,S} {14,S}
+3  *3 C u1 p0 c0 {2,S} {4,S} {5,S}
+4  H u0 p0 c0 {3,S}
+5  C u0 p0 c0 {3,S} {6,S} {15,S} {16,S}
+6  C u0 p0 c0 {5,S} {7,S} {17,S} {18,S}
+7  C u0 p0 c0 {6,S} {8,S} {19,S} {20,S}
+8  C u0 p0 c0 {7,S} {9,S} {21,S} {22,S}
+9  C u0 p0 c0 {8,S} {23,S} {24,S} {25,S}
+10 H u0 p0 c0 {1,S}
+11 H u0 p0 c0 {1,S}
+12 H u0 p0 c0 {1,S}
+13 H u0 p0 c0 {2,S}
+14 H u0 p0 c0 {2,S}
+15 H u0 p0 c0 {5,S}
+16 H u0 p0 c0 {5,S}
+17 H u0 p0 c0 {6,S}
+18 H u0 p0 c0 {6,S}
+19 H u0 p0 c0 {7,S}
+20 H u0 p0 c0 {7,S}
+21 H u0 p0 c0 {8,S}
+22 H u0 p0 c0 {8,S}
+23 H u0 p0 c0 {9,S}
+24 H u0 p0 c0 {9,S}
+25 H u0 p0 c0 {9,S}
+"""
+        )]) # octyl
+        p2 = Species(molecule=[Molecule().fromAdjacencyList(
+"""
+multiplicity 2
+1 O u1 p2 c0 {2,S}
+2 *1 O u0 p2 c0 {1,S} {3,S}
+3 *2 H u0 p0 c0 {2,S}
+"""
+        )]) # peroxyl
+        reaction = Reaction(reactants=[r1,r2], products=[p1,p2])
+        try:
+            barrierCorrection = self.barrierDatabase.estimateBarrierCorrection(reaction)
+        except:
+            self.fail("Encountered an exception when estimating barrier correction.")
 
     def testSoluteLibrary(self):
         "Test we can obtain solute parameters from a library"
