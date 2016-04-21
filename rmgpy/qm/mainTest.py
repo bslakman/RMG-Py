@@ -78,7 +78,6 @@ class TestQMCalculator(unittest.TestCase):
 		self.mop1 = QMCalculator(software = 'mopac',
 								method = 'pm3',
 								fileStore = fileStore,
-								molecule = mol,
 								)
 				
 		self.mop2 = QMCalculator(software = 'mopac',
@@ -88,13 +87,11 @@ class TestQMCalculator(unittest.TestCase):
 		self.mop3 = QMCalculator(software = 'mopac',
 								method = 'pm7',
 								fileStore = fileStore,
-								molecule = mol,
 								)
 		
 		self.mop4 = QMCalculator(software = 'mopac',
 								method = 'pm8',
 								fileStore = fileStore,
-								molecule = mol,
 								)
 		
 		self.gauss1 = QMCalculator(software = 'gaussian',
@@ -104,19 +101,16 @@ class TestQMCalculator(unittest.TestCase):
 		self.gauss2 = QMCalculator(software = 'gaussian',
 								  method = 'pm6',
 								  fileStore = fileStore,
-								  molecule = mol,
 								  )
 		
 		self.gauss3 = QMCalculator(software = 'gaussian',
 								  method = 'pm7',
 								  fileStore = fileStore,
-								  molecule = mol,
 								  )
 		
 		self.molpro1 = QMCalculator(software = 'molpro',
 								   method = 'mp2',
 								   fileStore = fileStore,
-								   molecule = mol,
 								   )
 		
 		self.qmmol1 = QMCalculator(fileStore=fileStore)
@@ -212,9 +206,9 @@ class TestQMCalculator(unittest.TestCase):
 		Test that getThermoData() works correctly.
 		"""
 		outputDirectory = os.path.join(self.mop1.settings.fileStore, '..', '..')
-		self.mop1.setDefaultOutputDirectory(outputDirectory)
-		self.mop2.setDefaultOutputDirectory(outputDirectory)
-		self.mop3.setDefaultOutputDirectory(outputDirectory)
+		self.mop1.setOutputDirectory(outputDirectory)
+		self.mop2.setOutputDirectory(outputDirectory)
+		self.mop3.setOutputDirectory(outputDirectory)
 		
 		mol = Molecule().fromSMILES('C1=CC=C2C=CC=CC2=C1')
 		
@@ -260,8 +254,8 @@ class TestQMCalculator(unittest.TestCase):
 		Test that getThermoData() works correctly.
 		"""
 		outputDirectory = os.path.join(self.mop1.settings.fileStore, '..', '..')
-		self.gauss1.setDefaultOutputDirectory(outputDirectory)
-		self.gauss2.setDefaultOutputDirectory(outputDirectory)
+		self.gauss1.setOutputDirectory(outputDirectory)
+		self.gauss2.setOutputDirectory(outputDirectory)
 		
 		mol = Molecule().fromSMILES('C1=CC=C2C=CC=CC2=C1')
 		

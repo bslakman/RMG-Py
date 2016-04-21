@@ -173,14 +173,8 @@ cdef class Molecule(Graph):
     
     cpdef fromXYZ(self, numpy.ndarray atomicNums, numpy.ndarray coordinates)
 
-    cpdef fromOBMol(self, obmol)
-
-    cpdef fromAdjacencyList(self, str adjlist)
-    
     cpdef fromXYZ(self, numpy.ndarray atomicNums, numpy.ndarray coordinates)
     
-    cpdef str toCML(self)
-
     cpdef str toInChI(self)
 
     cpdef str toAugmentedInChI(self)
@@ -191,7 +185,7 @@ cdef class Molecule(Graph):
 
     cpdef str toSMILES(self)
 
-    cpdef toAdjacencyList(self, str label=?, bint removeH=?, bint removeLonePairs=?)
+    cpdef toAdjacencyList(self, str label=?, bint removeH=?, bint removeLonePairs=?, bint oldStyle=?)
 
     cpdef bint isLinear(self) except -2
 

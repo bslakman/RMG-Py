@@ -387,6 +387,7 @@ class GaussianMolB3LYP(GaussianMol):
     """
     Gaussian B3LYP calculations for molecules
 
+    """
     #: Keywords that will be added at the top of the qm input file
     # removed 'gdiis' from the keywords; http://www.gaussian.com/g_tech/g_ur/d_obsolete.htm
     keywords = [

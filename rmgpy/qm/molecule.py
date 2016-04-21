@@ -89,7 +89,7 @@ class Geometry:
         "Returns the path of the refined mol file."
         return self.getFilePath('.refined.mol')
 
-    def generateRDKitGeometries(self):
+    def generateRDKitGeometries(self, boundsMatrix=None, atomMatch=None):
         """
         Use RDKit to guess geometry.
 
@@ -117,7 +117,7 @@ class Geometry:
         """
         Embed the RDKit molecule and create the crude molecule file.
         """
-        if boundsMatrix == None:
+        if bm == None:
             AllChem.EmbedMultipleConfs(rdmol, numConfAttempts,randomSeed=1)
             crude = Chem.Mol(rdmol.ToBinary())
             rdmol, minEid = self.optimize(rdmol)

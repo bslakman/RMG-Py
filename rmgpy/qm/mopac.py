@@ -138,14 +138,6 @@ class Mopac:
         
         return input_string
        
-    def run(self, inputFileName):
-        # submits the input file to mopac
-        command = os.path.join(self.directory, self.geometry.uniqueID + self.inputFileExtension)
-        process = Popen([self.executablePath, command])
-        process.communicate()# necessary to wait for executable termination!
-    
-        return self.checkNoFailure()
-        
     def checkNoFailure(self):
         """
         checks whether the output file contains any of the 
