@@ -7,6 +7,7 @@ from rmgpy.reaction import Reaction
 from rmgpy.species import Species
 from rmgpy.data.kinetics import KineticsFamily, ReactionRecipe, KineticsDatabase
 from rmgpy.data.rmg import RMGDatabase
+from rmgpy.data.solvation import SolvationKinetics
 from rmgpy.qm.main import QMCalculator
 from rmgpy.qm.gaussian import GaussianTSB3LYP
 
@@ -24,10 +25,10 @@ rmgDatabase = RMGDatabase()
 rmgDatabase.load(os.path.abspath(os.path.join(os.getenv('RMGpy'), '..', 'RMG-database', 'input')), kineticsFamilies=rxnFamiles)# solvation=False)
 print 'Finished loading RMG Database ...'
 
-print 'Loading solvation database'...
+print 'Loading solvation database...'
 for family in rxnFamiles:
     barrier_database = SolvationKinetics()
-	barrier_database.family = family
+    barrier_database.family = family
     barrier_database.load(os.path.join(os.getenv('RMGpy'), '..', 'RMG-database', 'input', 'kinetics', 'families', family), None, None)
 print 'Finished loading solvation database for selected families'
 
