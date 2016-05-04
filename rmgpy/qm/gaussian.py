@@ -586,7 +586,7 @@ class GaussianTS(QMReaction, Gaussian):
             output.append('')
             output.append('')
         else:
-            top_keys = "# m062x/6-311+g(2df,2p) scrf(smd, solvent=" + solvent ")"
+            top_keys = "# m062x/6-311+g(2df,2p) scrf(smd, solvent=" + solvent + ")"
             atomsymbols, atomcoords = self.reactantGeom.parseLOG(self.outputFilePath)
             output, atomCount = self.geomToString(atomsymbols, atomcoords, outputString=output)
             assert atomCount == len(self.reactantGeom.molecule.atoms)
