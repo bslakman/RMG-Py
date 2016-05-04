@@ -64,7 +64,7 @@ class TestSoluteDatabase(TestCase):
         barrierCorrection = self.barrierDatabase.estimateBarrierCorrection(reaction)
         self.assertAlmostEqual(barrierCorrection.correction.value_si/1000, 0.1996, places=3)
 
-    def lookupBarrierCorrectionfor(self):
+    def testLookupBarrierCorrection(self):
         "Test we can obtain the delta Ea for a solvated reaction"
         r1 = Species(molecule=[Molecule().fromAdjacencyList(
 """
