@@ -234,7 +234,9 @@ class QMCalculator():
         Generate solvation data for a reaction
         """
         raise NotImplementedError
-        return
+        qm_reaction_calculator = rmgpy.qm.gaussian.GaussianTSM062X(reaction, self.settings, tsDatabase, solvationDatabase)
+        delEa = qm_reaction_calculator.generateSolvationData()
+        return delEa
 
     def getKineticData(self, reaction, tsDatabase):
         """

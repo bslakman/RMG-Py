@@ -481,9 +481,10 @@ class GaussianTS(QMReaction, Gaussian):
                      "irc=(calcall,report=read) geom=allcheck guess=check nosymm",
                      "opt=(modredundant,MaxCycles=",
                      "opt=(qst2,calcall,noeigentest,MaxCycles=",
+                     "scrf(smd, solvent="
                      ]
 
-    def inputFileKeywords(self, attempt, irc=False, modRed=None, qst2=None):
+    def inputFileKeywords(self, attempt, irc=False, modRed=None, qst2=None, solvent=None):
         """
         Return the top keywords for attempt number `attempt`.
 
@@ -497,6 +498,9 @@ class GaussianTS(QMReaction, Gaussian):
         elif qst2:
             optionsKeys = self.otherKeywords[2]
             optionsKeys = optionsKeys + "{N}) nosymm".format(N=max(100,qst2*10))
+        elif solvent:
+            optionsKeys = otherKeywords[3]
+            optionsKeys = optionsKeys + "{0})".format(solvent)
         else:
             optionsKeys = self.keywords[attempt-1]
 
@@ -569,6 +573,25 @@ class GaussianTS(QMReaction, Gaussian):
             assert atomCount == len(self.reactantGeom.molecule.atoms)
 
         self.writeInputFile(output, top_keys=top_keys, numProcShared=20, memory='5GB', checkPoint=True, inputFilePath=self.ircInputFilePath, scf=scf)
+
+    def createSolvationInputFile(self, solvent):
+        """
+        Write input file for a single point energy calculation on a geometry.
+        The geometry is taken from the checkpoint file created during the
+        geometry search.
+        """
+        output = ['', "{charge}   {mult}".format(charge=0, mult=self.reactantGeom.molecule.multiplicity )]
+        if os.path.exists(self.getFilePath('.chk')):
+            top_keys = self.inputFileKeywords(0, solvent=solvent)
+            output.append('')
+            output.append('')
+        else:
+            top_keys = "# m062x/6-311+g(2df,2p) scrf(smd, solvent=" + solvent ")"
+            atomsymbols, atomcoords = self.reactantGeom.parseLOG(self.outputFilePath)
+            output, atomCount = self.geomToString(atomsymbols, atomcoords, outputString=output)
+            assert atomCount == len(self.reactantGeom.molecule.atoms)
+
+        self.writeInputFile(output, top_keys=top_keys, numProcShared=20, memory='5GB', checkPoint=True, inputFilePath=self.solvationInputFilePath, scf=scf)
 
     def createGeomInputFile(self, freezeAtoms, otherGeom=False):
 
@@ -813,6 +836,17 @@ class GaussianTS(QMReaction, Gaussian):
         process.communicate()# necessary to wait for executable termination!
 
         return self.verifyIRCOutputFile()
+
+    def runSMD(self):
+        """
+        Run the solvation input file
+        """
+        self.testReady()
+        # submits the input file to Gaussian
+        process = Popen([self.executablePath, self.solvationInputFilePath, self.solvationOutputFilePath])
+        process.communicate()# necessary to wait for executable termination!
+
+        return self.verifySolvationOutputFile()
 
     def prepDoubleEnded(self, labels, notes):
         """

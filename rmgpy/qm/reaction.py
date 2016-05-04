@@ -57,10 +57,12 @@ class QMReaction:
 
     """
 
-    def __init__(self, reaction, settings, tsDatabase):
+    def __init__(self, reaction, settings, tsDatabase, solvationDatabase=None):
         self.reaction = reaction
         self.settings = settings
         self.tsDatabase = tsDatabase
+        if solvationDatabase:
+            self.solvent = solvationDatabase.category
         # self.tsDatabase = TransitionStates()
         # self.tsDatabase.load(
         #         path=os.path.abspath(os.path.join(os.getenv('RMGpy'), '..', 'RMG-database', 'input', 'kinetics', 'families', self.reaction.family.label)),
@@ -126,6 +128,16 @@ class QMReaction:
     def ircInputFilePath(self):
         """Get the irc input file name."""
         return self.getFilePath('IRC' + self.inputFileExtension)
+
+    @property
+    def solvationOutputFilePath(self):
+        """Get the solvation output file name."""
+        return self.getFilePath("_" + self.solvent + self.outputFileExtension)
+
+    @property
+    def solvationInputFilePath(self):
+        """Get the solvation input file name."""
+        return self.getFilePath("_" + self.solvent + self.inputFileExtension)
 
     def setOutputDirectory(self):
         """
@@ -635,8 +647,11 @@ class QMReaction:
     def generateSolvationEnergy(self):
         """
         """
-        raise NotImplementedError
-        # Generate the input file
+        # Generate the input file; geometry should come from successful TS
+        # output file.
+        self.createSolvationInputFile()
+        successful = self.runSMD()
+
         # Write the output file
 
     def generateTSGeometryDirectGuess(self):
