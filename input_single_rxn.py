@@ -28,33 +28,37 @@ print 'Finished loading RMG Database ...'
 print 'Loading solvation database...'
 for family in rxnFamiles:
     barrier_database = SolvationKinetics()
-    barrier_database.family = family
+    barrier_database.family = rmgDatabase.kinetics.families[family]
     barrier_database.load(os.path.join(os.getenv('RMGpy'), '..', 'RMG-database', 'input', 'kinetics', 'families', family), None, None)
 print 'Finished loading solvation database for selected families'
 
 
-rSpecies1 = Species(molecule=Molecule().fromSMILES("CCCCCCCC"))
-rSpecies2 = Species(molecule=Molecule().fromSMILES("[O][O]"))
-pSpecies1 = Species(molecule=Molecule().fromSMILES("[CH2]CCCCCCC"))
-pSpecies2 = Species(molecule=Molecule().fromSMILES("O[O]"))
+rSpecies1 = Species(molecule=[Molecule().fromSMILES("CCCCCCCC")])
+rSpecies2 = Species(molecule=[Molecule().fromSMILES("[O][O]")])
+pSpecies1 = Species(molecule=[Molecule().fromSMILES("[CH2]CCCCCCC")])
+pSpecies2 = Species(molecule=[Molecule().fromSMILES("O[O]")])
+rSpecies1.generateResonanceIsomers()
+rSpecies2.generateResonanceIsomers()
+pSpecies1.generateResonanceIsomers()
+pSpecies2.generateResonanceIsomers()
 testReaction = Reaction(reactants=[rSpecies1, rSpecies2], products=[pSpecies1, pSpecies2], reversible=True)
 reactionList = []
 for moleculeA in rSpecies1.molecule:
 	for moleculeB in rSpecies2.molecule:
-		tempList = rmgDatabase.kinetics.generateReactionsFromFamilies([moleculeA, moleculeB], [], only_families=[rxnFamily])
+		tempList = rmgDatabase.kinetics.generateReactionsFromFamilies([moleculeA, moleculeB], [], only_families=['H_Abstraction'])
 		for rxn0 in tempList:
 			reactionList.append(rxn0)
 
 gotOne=False
 for reaction in reactionList:
 	# Check if any of the RMG proposed reactions matches the reaction in the mechanism
-	if reaction.isIsomorphic(testReaction):
+	if testReaction.isIsomorphic(reaction):
 		# Now add the labeled atoms to the Molecule, and check all labels were added
 		atLblsR = dict([(lbl[0], False) for lbl in reaction.labeledAtoms])
 		atLblsP = dict([(lbl[0], False) for lbl in reaction.labeledAtoms])
 
 		for reactant in reaction.reactants:
-			reactant = reactant.molecule[0]
+			#reactant = reactant.molecule[0]
 			reactant.clearLabeledAtoms()
 			for atom in reactant.atoms:
 				for atomLabel in reaction.labeledAtoms:
@@ -62,7 +66,7 @@ for reaction in reactionList:
 						atom.label = atomLabel[0]
 						atLblsR[atomLabel[0]] = True
 		for product in reaction.products:
-			product = product.molecule[0]
+			#product = product.molecule[0]
 			product.clearLabeledAtoms()
 			for atom in product.atoms:
 				for atomLabel in reaction.labeledAtoms:
@@ -74,11 +78,11 @@ for reaction in reactionList:
 			break
 
 def calculate(reaction):
-	rxnFamily = reaction.family.label
+	rxnFamily = reaction.family
 	tsDatabase = rmgDatabase.kinetics.families[rxnFamily].transitionStates
 	# reaction = qmCalc.getKineticData(reaction, tsDatabase)
 	# Need to get TS data, and if that works, get solvation data.
-	solvationDatabase = rmgDatabase.kineticsfamilies[rxnFamily].solvationCorrections
+	solvationDatabase = rmgDatabase.kinetics.families[rxnFamily].solvationCorrections
 	reaction = qmCalc.getSolvationData(reaction, tsDatabase, solvationDatabase)
 
 	for files in os.listdir('./'):
@@ -86,7 +90,7 @@ def calculate(reaction):
 			os.remove(files)
 
 if not gotOne:
-	print "No reactions found for reaction {4}: {0} + {1} = {2} + {3}".format(rSpecies1.molecule[0].toSMILES(), rSpecies2.molecule[0].toSMILES(), pSpecies1.molecule[0].toSMILES(), pSpecies2.molecule[0].toSMILES(), i)
+	print "No reactions found for reaction: {0} + {1} = {2} + {3}".format(rSpecies1.molecule[0].toSMILES(), rSpecies2.molecule[0].toSMILES(), pSpecies1.molecule[0].toSMILES(), pSpecies2.molecule[0].toSMILES())
 else:
 	qmCalc = QMCalculator(
 									software='gaussian',
