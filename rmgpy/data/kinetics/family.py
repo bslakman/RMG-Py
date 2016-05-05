@@ -1262,8 +1262,9 @@ class KineticsFamily(Database):
         for struct in productStructures:
             if self.isMoleculeForbidden(struct):
                 raise ForbiddenStructureException() 
-            if failsSpeciesConstraints(struct):
-                raise ForbiddenStructureException() 
+            if failsSpeciesConstraints:
+                if failsSpeciesConstraings(struct):
+                    raise ForbiddenStructureException() 
                 
         return productStructures
 
