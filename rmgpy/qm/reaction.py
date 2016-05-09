@@ -143,7 +143,7 @@ class QMReaction:
         """
         Set up the fileStore and scratchDirectory if not already done.
         """
-        subPath = os.path.join('Reactions', self.reaction.family.label, self.uniqueID, self.settings.method)
+        subPath = os.path.join('Reactions', self.reaction.family, self.uniqueID, self.settings.method)
 
         setFileStore = True
         setScratch = True
@@ -210,7 +210,6 @@ class QMReaction:
     def getGeometry(self, molecule, settings):
 
         geom = Geometry(settings, molecule.toAugmentedInChIKey(), molecule)
-
         return geom
 
     def getRDKitMol(self, geometry):
@@ -1103,7 +1102,6 @@ class QMReaction:
         Try to get the delta Ea. First, generate TS geometry direct guess. If
         that is successful, spawn a single point energy calculation in a solvent
         """
-        raise NotImplementedError
         self.initialize()
         # provides transitionstate geometry
         fileStore = self.settings.fileStore #  To ensure all files are found in the same base directory
