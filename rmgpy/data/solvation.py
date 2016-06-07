@@ -925,9 +925,9 @@ class SolvationKineticsGroups(Database):
         groupList = []
         for template, corrections in trainingSet:
             for group in template:
-                if group not in self.top:
+                if group not in [t.label for t in self.top]:
                     groupList.append(group)
-                    groupList.extend(self.ancestors(group)[:-1])
+                    groupList.extend([a.label for a in self.ancestors(group)[:-1]])
         groupList = list(set(groupList))
         groupList.sort(key=lambda x: x.index)
 
@@ -951,7 +951,7 @@ class SolvationKineticsGroups(Database):
                 # Create every combination of each group and its ancestors with each other
                 combinations = []
                 for group in template:
-                    groups = [group]; groups.extend(self.ancestors(group)) # Groups from the group.py tree
+                    groups = [group]; groups.extend(g.label for g in self.ancestors(group)) # Groups from the group.py tree
                     combinations.append(groups)
                 combinations = getAllCombinations(combinations)
                 # Add a row to the matrix for each combination
@@ -962,7 +962,7 @@ class SolvationKineticsGroups(Database):
                     A.append(Arow); b.append(brow)
 
                     for group in groups:
-                        groupComments[group.label].add("{0!s}".format(template))
+                        groupComments[group].add("{0!s}".format(template))
 
             if len(A) == 0:
                 logging.warning('Unable to fit kinetics groups for family "{0}"; no valid data found.'.format(self.label))
@@ -984,9 +984,9 @@ class SolvationKineticsGroups(Database):
                 variance = (dm - d)**2
                 for group in template:
                     groups = [group]
-                    groups.extend(self.ancestors(group))
+                    groups.extend([gr.label for gr in self.ancestors(group)])
                     for g in groups:
-                        if g.label not in [top.label for top in self.top]:
+                        if g not in [top.label for top in self.top]:
                             ind = groupList.index(g)
                             stdev[ind] += variance
                             count[ind] += 1
@@ -1008,8 +1008,8 @@ class SolvationKineticsGroups(Database):
                     groupValues[entry]=x[-1]
                     groupUncertainties[entry].append(ci[-1])
                     groupCounts[entry].append(count[-1])
-                elif entry.label in [group.label for group in groupList]:
-                    index = [group.label for group in groupList].index(entry.label)
+                elif entry.label in groupList:
+                    index = groupList.index(entry.label)
                     groupValues[entry]=x[index]
                     groupUncertainties[entry].append(ci[index])
                     groupCounts[entry].append(count[index])
