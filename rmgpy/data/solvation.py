@@ -267,6 +267,7 @@ class SolventLibrary(Database):
     def loadEntry(self,
                   index,
                   label,
+                  molecule,
                   solvent,
                   reference=None,
                   referenceType='',
