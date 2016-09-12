@@ -136,6 +136,7 @@ class QMReaction:
             'R_Addition_MultipleBond': False,
             'intra_H_migration': True,
             'Disproportionation': False,
+            'Silylene_Insertion': False
         }
         return duplicateFam
 
@@ -319,7 +320,7 @@ class QMReaction:
         RDKit to place greater importance in maintaining these distance limits when
         generating conformers.
         """
-        if self.reaction.family.lower() in ['cl-abstraction', 'h_abstraction', 'r_addition_multiplebond', 'intra_h_migration']:
+        if self.reaction.family.lower() in ['silylene_insertion', 'cl-abstraction', 'h_abstraction', 'r_addition_multiplebond', 'intra_h_migration']:
             lbl1 = reactant.getLabeledAtom('*1').sortingLabel
             lbl2 = reactant.getLabeledAtom('*2').sortingLabel
             lbl3 = reactant.getLabeledAtom('*3').sortingLabel
