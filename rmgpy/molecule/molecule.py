@@ -886,7 +886,7 @@ class Molecule(Graph):
         for i, atom1 in enumerate(sortedAtoms):
             for atom2 in sortedAtoms[i+1:]:
                 # Set upper limit for bond distance
-                criticalDistance = (atom1.element.covRadius + atom2.element.covRadius + 0.45)**2
+                criticalDistance = (0.88 * (atom1.element.covRadius + atom2.element.covRadius) + 0.45)**2
                 
                 # First atom that is more than 4.0 Anstroms away in the z-axis, break the loop
                 # Atoms are sorted along the z-axis, so all following atoms should be even further
