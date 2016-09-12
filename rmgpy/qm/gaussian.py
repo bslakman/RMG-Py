@@ -510,7 +510,7 @@ class GaussianTS(QMReaction, Gaussian):
         assert atomCount == len(self.reactantGeom.molecule.atoms)
 
         output.append('')
-        self.writeInputFile(output, attempt, numProcShared=20, memory='5GB', checkPoint=False, scf=scf)
+        self.writeInputFile(output, attempt, numProcShared=20, memory='10GB', checkPoint=False, scf=scf)
 
     def createIRCFile(self, scf=False):
         """
@@ -527,7 +527,7 @@ class GaussianTS(QMReaction, Gaussian):
         
         output.append('')
 
-        self.writeInputFile(output, top_keys=top_keys, numProcShared=20, memory='5GB', checkPoint=False, inputFilePath=self.ircInputFilePath, scf=scf)
+        self.writeInputFile(output, top_keys=top_keys, numProcShared=20, memory='10GB', checkPoint=False, inputFilePath=self.ircInputFilePath, scf=scf)
 
     def createGeomInputFile(self, freezeAtoms, otherGeom=False):
 
@@ -564,7 +564,7 @@ class GaussianTS(QMReaction, Gaussian):
 
         output.append('')
         top_keys = self.inputFileKeywords(0, modRed=atomCount)
-        self.writeInputFile(output, top_keys=top_keys, numProcShared=20, memory='5GB', bottomKeys=bottom_keys)
+        self.writeInputFile(output, top_keys=top_keys, numProcShared=20, memory='10GB', bottomKeys=bottom_keys)
 
     def createQST2InputFile(self):
         # For now we don't do this, until seg faults are fixed on Discovery.
@@ -638,7 +638,7 @@ class GaussianTS(QMReaction, Gaussian):
 
             output.append('')
 
-            self.writeInputFile(output, attempt, top_keys=top_keys, numProcShared=20, memory='5GB', bottomKeys=bottomKeys, inputFilePath=inputFilePath, scf=scf)
+            self.writeInputFile(output, attempt, top_keys=top_keys, numProcShared=20, memory='10GB', bottomKeys=bottomKeys, inputFilePath=inputFilePath, scf=scf)
 
             outputFilePath = self.runDouble(inputFilePath)
             
@@ -712,7 +712,7 @@ class GaussianTS(QMReaction, Gaussian):
 
             output.append('')
 
-            self.writeInputFile(output, attempt, top_keys=top_keys, numProcShared=20, memory='5GB', bottomKeys=bottomKeys, inputFilePath=inputFilePath)
+            self.writeInputFile(output, attempt, top_keys=top_keys, numProcShared=20, memory='10GB', bottomKeys=bottomKeys, inputFilePath=inputFilePath)
 
             outputFilePath = self.runDouble(inputFilePath)
             
@@ -1444,7 +1444,7 @@ class GaussianTS(QMReaction, Gaussian):
         atomDist = self.parseTS(labels)
 
         distances = {'d12':float(atomDist[0]), 'd23':float(atomDist[1]), 'd13':float(atomDist[2])}
-        user = "Pierre Bhoorasingh <bhoorasingh.p@husky.neu.edu>"
+        user = "Belinda Slakman <slakman.b@husky.neu.edu>"
         if doubleEnd:
             description = "Found via double-ended search by the automatic transition state generator"
         else:
