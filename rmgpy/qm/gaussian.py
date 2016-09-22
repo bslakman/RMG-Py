@@ -1168,6 +1168,32 @@ class GaussianTS(QMReaction, Gaussian):
 
             if targetReaction.isIsomorphic(testReaction):
                 return True
+            elif self.reaction.family.lower() == 'silylene_insertion': 
+                # Special case where there is a stable adduct, so make sure product end matches, then play with the other end.
+                assert len(targetReaction.products) == 1
+                if not testReaction.reactants[0].isIsomorphic(targetReaction.products[0]):
+                   if not testReaction.products[0].isIsomorphic(targetReaction.products[0]):
+                       return False
+                labelList = self.getLabels(self.setupMolecules()[0])[0] # hacky, but is there another way?
+                d13start_sq = ((atomcoords[pth1End][labelList[0]] - atomcoords[pth1End][labelList[2]])**2).sum()
+                d13end_sq = ((atomcoords[-1][labelList[0]] - atomcoords[-1][labelList[2]])**2).sum()
+                # First identify which is the reactant and which is the product, based on d13 (should be bigger in adduct than product)
+                if d13start_sq > d13end_sq:
+                    aCoords = atomcoords[pth1End]
+                    pCoords = atomcoords[-1]
+                else:
+                    aCoords = atomcoords[-1]
+                    pCoords = atomcoords[pth1End]
+                # In adduct, d12 should be smaller and d23 should be bigger.
+                d12a_sq = ((aCoords[labelList[0]]-aCoords[labelList[1]])**2).sum()
+                d12p_sq = ((pCoords[labelList[0]]-pCoords[labelList[1]])**2).sum()
+                if d12a_sq > d12p_sq:
+                    return False
+                d23a_sq = ((aCoords[labelList[1]]-aCoords[labelList[2]])**2).sum()
+                d23p_sq = ((pCoords[labelList[1]]-pCoords[labelList[2]])**2).sum()
+                if d23a_sq < d23p_sq:
+                    return False
+                return True
             else:
                 return False
 
