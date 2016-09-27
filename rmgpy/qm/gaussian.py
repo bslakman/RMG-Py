@@ -1285,10 +1285,10 @@ class GaussianTS(QMReaction, Gaussian):
         newItem = deepcopy(entry)
         newDist = deepcopy(newItem.data.distances)
         # for H_abstraction
-        if self.reaction.family.label in ['H_Abstraction']:
+        if self.reaction.family in ['H_Abstraction']:
             newDist['d12'] = entry.data.distances['d23']
             newDist['d23'] = entry.data.distances['d12']
-        elif self.reaction.family.label in ['intra_H_migration']:
+        elif self.reaction.family in ['intra_H_migration']:
             newDist['d23'] = entry.data.distances['d13']
             newDist['d13'] = entry.data.distances['d23']
         else:
@@ -1332,7 +1332,7 @@ class GaussianTS(QMReaction, Gaussian):
         Take a TS data entry and checks if it already exists in the TS database. If it does not,
         add the label to the entry, and add it to the database.
         """
-        tsData_folder = os.path.abspath(os.path.join(rmgpy.getPath(), '../../RMG-database/input/kinetics/families/{0}'.format(self.reaction.family.label)))
+        tsData_folder = os.path.abspath(os.path.join(rmgpy.getPath(), '../../RMG-database/input/kinetics/families/{0}'.format(self.reaction.family)))
         speciesDict = self.tsDatabase.getSpecies(os.path.join(tsData_folder, 'TS_training/dictionary.txt'))
         
         # Check if self reaction is already in the TS database
@@ -1454,10 +1454,12 @@ class GaussianTS(QMReaction, Gaussian):
         # Check if we can use the reverse reaction (reactions that are their own reverse)
         entry2 = None
         dupFam = self.duplicateFam
-        if dupFam[self.reaction.family.label]:
-            entry2 = self.duplicate(entry)
-        
-        # Update the training data
+        try:
+            if dupFam[self.reaction.family]:
+                entry2 = self.duplicate(entry)
+        except KeyError:
+            import ipdb; ipdb.set_trace()
+        # Update the trining data
         with open('{0}/TS_training/reactions.py'.format(tsData_folder), 'a') as f:
             saveEntry(f, entry)
             if entry2:
