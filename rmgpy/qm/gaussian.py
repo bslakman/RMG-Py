@@ -1381,7 +1381,7 @@ class GaussianTS(QMReaction, Gaussian):
                     try:
                         for atomLabel in labeledAtoms[label]:
                             initialMap[reactant.molecule[0].getLabeledAtom(atomLabel)] = mol.getLabeledAtom(atomLabel)
-                    except ValueError:
+                    except:
                         # atom labels did not match, therefore not a match
                         label = reactant.molecule[0].getFingerprint() + '-' + str(num)
                         valErr = True
@@ -1432,6 +1432,8 @@ class GaussianTS(QMReaction, Gaussian):
                         # atom labels did not match, therefore not a match
                         label = product.molecule[0].getFingerprint() + '-' + str(num)
                         valErr = True
+                    except KeyError:
+                        pass
                     if not valErr:
                         if product.molecule[0].isIsomorphic(mol, initialMap):
                             # It's already in the species dict
