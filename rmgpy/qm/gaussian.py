@@ -435,6 +435,7 @@ class GaussianTS(QMReaction, Gaussian):
     keywords = [
                 "opt=(ts,calcall,noeigentest,maxcycles=", # nosymm
                 "opt=(ts,calcall,noeigentest,cartesian,maxcycles=", # nosymm geom=allcheck guess=check
+                "opt=(ts,calcall,noeigentest,tight,maxcycles=", # when we have a too-small imag freq, try tight
                 ]
 
     otherKeywords = [
@@ -891,11 +892,28 @@ class GaussianTS(QMReaction, Gaussian):
                     if element in line:
                         logging.error("Gaussian output file contains the following error: {0}".format(element) )
                         known_failure_keys[element] = True
+
+        tooSmall = False
         
+        # Figure out the negative frequency, and if it's too small.
+        with open(filePath) as outputFile:
+            list_of_lines = outputFile.read().splitlines()
+            for i, line in enumerate(list_of_lines):
+                line = line.strip()
+                if ("1 imaginary frequencies (negative Signs)") in line:
+                    freq_line = list_of_lines[i+7]
+                    negative_freq = float(freq_line.split()[2])
+                    if negative_freq > -200.0:
+                        tooSmall = True
+                        logging.error("Gaussian output file contains the following error: Small imaginary frequency")
+                    break
+
         if known_failure_keys['Error in internal coordinate system.']:
             return 'cartesian'
         elif known_failure_keys['Convergence failure -- run terminated.']:
             return 'scf'
+        elif tooSmall:
+            return 'small_freq'
         else:
             return None
             
