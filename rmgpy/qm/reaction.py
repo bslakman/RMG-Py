@@ -1022,6 +1022,7 @@ class QMReaction:
                 # species = Species(label=qmMolecule.molecule.toSMILES(), conformer=log.loadConformer(), molecule=[molecule])
                 # molecules.append(species)
             else:
+                print qmMolecule.molecule.toAdjacencyList()
                 raise Exception('The reactant or product geometry did not optimize. Cannot calculate the kinetics.')
         return molecules
 
