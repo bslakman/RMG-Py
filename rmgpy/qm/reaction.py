@@ -547,6 +547,13 @@ class QMReaction:
                     attempt = 2
                 elif chkErr=='scf' and scf==False:
                     scf = True
+                elif chkErr=='small_freq':
+                    if attempt == 3:
+                        fixableError = False
+                        shutil.copy(self.outputFilePath, self.outputFilePath+'.TS1.log')
+                        converged = False # Technically there are no failure keys, but need this function to return False.
+                    else:
+                        attempt = 3
                 if complete and chkErr==None:
                     fixableError=False
                     shutil.copy(self.outputFilePath, self.outputFilePath+'.TS1.log')
@@ -624,7 +631,6 @@ class QMReaction:
             notes = 'IRC failed\n'
         else:
             self.writeRxnOutputFile(labels)
-            import ipdb; ipdb.set_trace()
             notes = 'Success\n'
 
         return validTS, notes
