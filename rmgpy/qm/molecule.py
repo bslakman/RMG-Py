@@ -104,7 +104,7 @@ class Geometry:
         atoms = len(self.molecule.atoms)
         distGeomAttempts=1
         if atoms > 3:#this check prevents the number of attempts from being negative
-            distGeomAttempts = 15*(atoms-3) #number of conformer attempts is just a linear scaling with molecule size, due to time considerations in practice, it is probably more like 3^(n-3) or something like that
+            distGeomAttempts = 20*(atoms-3) #number of conformer attempts is just a linear scaling with molecule size, due to time considerations in practice, it is probably more like 3^(n-3) or something like that
 
         rdmol, minEid = self.rd_embed(rdmol, distGeomAttempts)
         self.saveCoordinatesFromRDMol(rdmol, minEid, rdAtIdx)
@@ -135,9 +135,10 @@ class Geometry:
                     Pharm3D.EmbedLib.EmbedMol(rdmol, bm, atomMatch=match)
                     break
                 except ValueError:
-                    print("RDKit failed to embed on attemt {0} of {1}".format(i+1, numConfAttempts))
+                    print("RDKit failed to embed on attempt {0} of {1}".format(i+1, numConfAttempts))
                     # What to do next (what if they all fail?) !!!!!
                 except RuntimeError:
+                    print self.toAdjacencyList() # maybe helpful for debugging
                     raise RDKitFailedError()
             else:
                 print("RDKit failed all attempts to embed")
