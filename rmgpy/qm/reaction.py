@@ -650,6 +650,10 @@ class QMReaction:
             diff = (coordinates1.coords - coordinates2.coords)
             return math.sqrt(sum(diff * diff))
             
+        if os.path.exists(os.path.join(self.fileStore, 'false_positives', self.uniqueID)):
+            notes = "Already run, false positive"
+            return False, notes
+
         self.settings.fileStore = self.fileStore
         self.settings.scratchDirectory = self.scratchDirectory
         split_fileStore = self.fileStore.split(self.uniqueID)
