@@ -320,14 +320,15 @@ class QMReaction:
         RDKit to place greater importance in maintaining these distance limits when
         generating conformers.
         """
+        reactant_temp = self.fixSortLabel(reactant)
         if self.reaction.family.lower() in ['silylene_insertion', 'cl-abstraction', 'h_abstraction', 'r_addition_multiplebond', 'intra_h_migration']:
-            lbl1 = reactant.getLabeledAtom('*1').sortingLabel
-            lbl2 = reactant.getLabeledAtom('*2').sortingLabel
-            lbl3 = reactant.getLabeledAtom('*3').sortingLabel
+            lbl1 = reactant_temp.getLabeledAtom('*1').sortingLabel
+            lbl2 = reactant_temp.getLabeledAtom('*2').sortingLabel
+            lbl3 = reactant_temp.getLabeledAtom('*3').sortingLabel
         elif self.reaction.family.lower() in ['disproportionation']:
-            lbl1 = reactant.getLabeledAtom('*2').sortingLabel
-            lbl2 = reactant.getLabeledAtom('*4').sortingLabel
-            lbl3 = reactant.getLabeledAtom('*1').sortingLabel
+            lbl1 = reactant_temp.getLabeledAtom('*2').sortingLabel
+            lbl2 = reactant_temp.getLabeledAtom('*4').sortingLabel
+            lbl3 = reactant_temp.getLabeledAtom('*1').sortingLabel
 
         labels = [lbl1, lbl2, lbl3]
         atomMatch = ((lbl1,),(lbl2,),(lbl3,))
@@ -506,8 +507,8 @@ class QMReaction:
         reactant.multiplicity = reactant.getRadicalCount() + 1
         product.multiplicity = product.getRadicalCount() + 1
 
-        reactant = self.fixSortLabel(reactant)
-        product = self.fixSortLabel(product)
+        #reactant = self.fixSortLabel(reactant)
+        #product = self.fixSortLabel(product)
 
         return reactant, product
 
@@ -1056,6 +1057,15 @@ class QMReaction:
                 print 'Cannot optimize geometry for {0}'.format(mol.toSMILES())
                 return self.reaction
 
+        print "Reactants:"
+        for r in self.reaction.reactants:
+            print r.toAdjacencyList()
+            for a in r.molecule[0].atoms: print a.sortingLabel
+        print "Products:"
+        for p in self.reaction.products:
+            print p.toAdjacencyList()
+            for at in p.molecule[0].atoms: print at.sortingLabel
+        
         reactants = self.calculateQMData(self.reaction.reactants, fileStore, scratchDirectory)
         products = self.calculateQMData(self.reaction.products, fileStore, scratchDirectory)
 
