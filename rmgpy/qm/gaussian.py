@@ -903,7 +903,7 @@ class GaussianTS(QMReaction, Gaussian):
                 if ("1 imaginary frequencies (negative Signs)") in line:
                     freq_line = list_of_lines[i+7]
                     negative_freq = float(freq_line.split()[2])
-                    if negative_freq > -200.0:
+                    if negative_freq > -100.0:
                         tooSmall = True
                         logging.error("Gaussian output file contains the following error: Small imaginary frequency")
                     break
